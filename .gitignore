@@ -1,0 +1,17 @@
+borders/
+configstore/
+filezilla/
+gh/
+github-copilot/
+helix/
+iterm2/
+karabiner/
+kitty/
+medusa/
+op/
+shopify/
+simple-update-notifier/
+svim/
+yarn/
+zed/
+starship.toml
