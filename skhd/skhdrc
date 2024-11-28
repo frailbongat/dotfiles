@@ -25,6 +25,7 @@ shift + cmd - l: yabai -m window --warp east
 # app shortcuts
 alt - b: open -a 'Arc'
 alt - c: open -a 'Visual Studio Code'
+alt - e: open -a 'Spark Desktop'
 alt - f: open -a 'Figma'
 alt - m: open -a 'Spotify'
 alt - n: open -a 'Messenger'

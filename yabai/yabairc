@@ -4,28 +4,28 @@ sudo yabai --load-sa
 yabai -m signal --add event=dock_did_restart action="sudo yabai --load-sa"
 
 # defaults
-yabai -m config layout                     bsp            \
-                                                          \
-                top_padding                8              \
-                bottom_padding             8              \
-                left_padding               8              \
-                right_padding              8              \
-                window_gap                 10             \
-                external_bar               all:32:0       \
-                                                          \
-                mouse_follows_focus        on             \
-                mouse_modifier             alt            \
-                mouse_action1              move           \
-                mouse_action2              resize         \
-                mouse_drop_action          swap           \
-                focus_follows_mouse        autoraise      \
-                                                          \
-                auto_balance               off            \
-                split_ratio                0.50           \
-                window_shadow              float          \
-                window_placement           second_child   \
-                insert_feedback_color      0xff9dd274     \
-                
+yabai -m config layout bsp
+
+yabai -m config top_padding 8
+yabai -m config bottom_padding 8
+yabai -m config left_padding 8
+yabai -m config right_padding 8
+yabai -m config window_gap 10
+yabai -m config external_bar all:32:0
+
+yabai -m config mouse_follows_focus on
+yabai -m config mouse_modifier alt
+yabai -m config mouse_action1 move
+yabai -m config mouse_action2 resize
+yabai -m config mouse_drop_action swap
+yabai -m config focus_follows_mouse autoraise
+
+yabai -m config auto_balance off
+yabai -m config split_ratio 0.50
+yabai -m config window_shadow float
+yabai -m config window_placement second_child
+yabai -m config insert_feedback_color 0xff9dd274
+
 # apps spaces
 yabai -m rule --add app="^Visual Studio Code$" space=^1
 yabai -m rule --add app="^Arc$" space=^1
@@ -35,6 +35,7 @@ yabai -m rule --add app="^Figma$" space=2
 yabai -m rule --add app="^Slack$" space=2
 yabai -m rule --add app="^Messenger$" space=3
 yabai -m rule --add app="^Spotify$" space=3
+yabai -m rule --add app="^Spark Desktop$" space=4
 
 # disable apps
 yabai -m rule --add app="^(Calculator|Software Update|Dictionary|VLC|System Preferences|System Settings|zoom.us|Photo Booth|Archive Utility|App Store|Alfred|Activity Monitor)$" manage=off
