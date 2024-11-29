@@ -11,12 +11,10 @@ for i = 1, 10, 1 do
     icon = {
       font = { family = settings.font.numbers },
       string = i,
-      padding_left = 8,
-      padding_right = 8,
+      padding_right = 2,
       highlight_color = colors.red,
     },
     label = {
-      padding_right = 8,
       color = colors.grey,
       highlight_color = colors.white,
       font = "sketchybar-app-font:Regular:12.0",

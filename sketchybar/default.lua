@@ -22,7 +22,7 @@ sbar.default({
       size = 12.0
     },
     color = colors.white,
-    padding_left = 0,
+    padding_left = settings.paddings,
     padding_right = settings.paddings,
     y_offset = 0
   },
