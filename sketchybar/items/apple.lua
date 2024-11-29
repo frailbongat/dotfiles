@@ -13,7 +13,7 @@ local apple = sbar.add("item", {
     color = colors.green
   },
   label = { drawing = false },
-  click_script = "$CONFIG_DIR/helpers/menus/bin/menus -s 0"
+  click_script = "$CONFIG_DIR/helpers/menus/bin/menus -s 0",
 })
 
 -- Padding item required because of bracket

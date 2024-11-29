@@ -56,7 +56,7 @@ local volume_slider = sbar.add("slider", popup_width, {
     highlight_color = colors.blue,
     background = {
       height = 6,
-      corner_radius = 3,
+      corner_radius = 5,
       color = colors.bg2,
     },
     knob= {
@@ -149,4 +149,3 @@ volume_icon:subscribe("mouse.scrolled", volume_scroll)
 volume_percent:subscribe("mouse.clicked", volume_toggle_details)
 volume_percent:subscribe("mouse.exited.global", volume_collapse_details)
 volume_percent:subscribe("mouse.scrolled", volume_scroll)
-
