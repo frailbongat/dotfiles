@@ -8,9 +8,10 @@ sbar.add("item")
 local apple = sbar.add("item", {
   icon = {
     string = icons.apple,
-    padding_right = 8,
-    padding_left = 8,
     color = colors.green
+  },
+  background = {
+    padding_right = 5
   },
   label = { drawing = false },
   click_script = "$CONFIG_DIR/helpers/menus/bin/menus -s 0",

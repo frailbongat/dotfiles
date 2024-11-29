@@ -20,6 +20,9 @@ for i = 1, 10, 1 do
       font = "sketchybar-app-font:Regular:12.0",
       y_offset = -1,
     },
+    background = {
+      padding_right = 5
+    },
   })
 
   spaces[i] = space

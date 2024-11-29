@@ -33,7 +33,6 @@ sbar.default({
       corner_radius = settings.radius,
     },
     color = colors.bg1,
-    padding_right = 5
   },
   popup = {
     background = {
