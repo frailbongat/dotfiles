@@ -4,7 +4,7 @@ local colors = require("colors")
 local cal = sbar.add("item", {
   icon = {
     color = colors.red,
-    padding_right = 16,
+    padding_right = 0,
     font = {
       style = settings.font.style_map["Medium"],
       size = 12.0,
@@ -12,8 +12,6 @@ local cal = sbar.add("item", {
   },
   label = {
     color = colors.white,
-    width = 49,
-    align = "right",
   },
   position = "right",
   update_freq = 30,
