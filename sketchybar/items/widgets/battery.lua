@@ -7,28 +7,16 @@ local battery = sbar.add("item", "widgets.battery", {
   icon = {
     font = {
       style = settings.font.style_map["Regular"],
-      size = 19.0,
-    }
+      size = 15.0,
+    },
+    padding_right = 0,
+  },
+  update_freq = 180,
+  background = {
+    padding_left = 5
   },
   label = { font = { family = settings.font.numbers } },
-  update_freq = 180,
-  popup = { align = "center" }
 })
-
-local remaining_time = sbar.add("item", {
-  position = "popup." .. battery.name,
-  icon = {
-    string = "Time remaining:",
-    width = 100,
-    align = "left"
-  },
-  label = {
-    string = "??:??h",
-    width = 100,
-    align = "right"
-  },
-})
-
 
 battery:subscribe({"routine", "power_source_change", "system_woke"}, function()
   sbar.exec("pmset -g batt", function(batt_info)
@@ -76,25 +64,3 @@ battery:subscribe({"routine", "power_source_change", "system_woke"}, function()
     })
   end)
 end)
-
-battery:subscribe("mouse.clicked", function(env)
-  local drawing = battery:query().popup.drawing
-  battery:set( { popup = { drawing = "toggle" } })
-
-  if drawing == "off" then
-    sbar.exec("pmset -g batt", function(batt_info)
-      local found, _, remaining = batt_info:find(" (%d+:%d+) remaining")
-      local label = found and remaining .. "h" or "No estimate"
-      remaining_time:set( { label = label })
-    end)
-  end
-end)
-
-sbar.add("bracket", "widgets.battery.bracket", { battery.name }, {
-  background = { color = colors.bg1 }
-})
-
-sbar.add("item", "widgets.battery.padding", {
-  position = "right",
-  width = settings.group_paddings
-})

@@ -10,14 +10,12 @@ local cal = sbar.add("item", {
       size = 12.0,
     },
   },
-  label = {
-    color = colors.white,
-  },
   position = "right",
   update_freq = 30,
   background = {
     padding_left = 5
   },
+  label = { font = { family = settings.font.numbers } },
 })
 
 cal:subscribe({ "forced", "routine", "system_woke" }, function(env)
