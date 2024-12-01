@@ -42,13 +42,13 @@ for i = 1, 10, 1 do
 end
 
 
-local spaces_bracket = sbar.add("bracket", {
-  'space.1', 'space.2', 'space.3', 'space.4'
-}, {
-  background = {
-    color = colors.red
-  },
-})
+-- local spaces_bracket = sbar.add("bracket", {
+--   'space.1', 'space.2', 'space.3', 'space.4'
+-- }, {
+--   background = {
+--     color = colors.red
+--   },
+-- })
 
 local space_window_observer = sbar.add("item", {
   drawing = false,
