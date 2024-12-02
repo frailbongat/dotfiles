@@ -8,6 +8,7 @@ return {
   orange = 0xfff39660,
   magenta = 0xffb39df3,
   grey = 0xff7f8490,
+  purple=0xff8aadf4,
   transparent = 0x00000000,
 
   bar = {
