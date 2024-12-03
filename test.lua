@@ -1,20 +1,19 @@
-function isLaptopDisplay()
-  -- Execute the 'system_profiler SPDisplaysDataType' command and capture the output
+-- Function to check if using an external display or built-in display on Mac
+function checkDisplayType()
   local handle = io.popen("system_profiler SPDisplaysDataType")
-  local result = handle:read("*all")
+  local result = handle:read("*a")
   handle:close()
 
-  -- Check if the output mentions 'Built-in Retina Display' or something similar
-  if string.match(result, "Built-in") then
-      return true  -- It's a laptop display
+  -- Print the result for debugging purposes
+  print(result)
+
+  -- Check if the result contains a display that is not built-in
+  if result:find("Built-In") then
+      return "Built-in Display"
   else
-      return false  -- External monitor is connected
+      return "External Display"
   end
 end
 
--- Example usage:
-if isLaptopDisplay() then
-  print("You are using the laptop's built-in display.")
-else
-  print("You are using an external monitor.")
-end
+-- Example usage
+print("You are using: " .. checkDisplayType())
