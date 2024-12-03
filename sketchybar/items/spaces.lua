@@ -9,7 +9,7 @@ for i = 1, 10, 1 do
   local space = sbar.add("space", "space." .. i, {
     space = i,
     icon = {
-      font = { family = settings.font.numbers },
+      font = { family = settings.font.numbers, size = 13 },
       string = i,
       padding_right = 2,
       highlight_color = colors.red,
@@ -18,7 +18,6 @@ for i = 1, 10, 1 do
       color = colors.grey,
       highlight_color = colors.white,
       font = "sketchybar-app-font:Regular:11.0",
-      y_offset = -1,
     },
     background = {
       color = colors.bg1,
@@ -29,14 +28,14 @@ for i = 1, 10, 1 do
   spaces[i] = space
 
     -- Padding space
-    sbar.add("space", "space.padding." .. i, {
-      space = i,
-      script = "",
-      width = 5,
-      background = {
-        color = colors.transparent
-      }
-    })
+    -- sbar.add("space", "space.padding." .. i, {
+    --   space = i,
+    --   script = "",
+    --   width = 5,
+    --   background = {
+    --     color = colors.transparent
+    --   }
+    -- })
 
   space:subscribe("space_change", function(env)
     local selected = env.SELECTED == "true"

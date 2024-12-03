@@ -9,6 +9,9 @@ local front_app = sbar.add("item", "front_app", {
       style = settings.font.style_map["Heavy"],
     },
   },
+  background = {
+    padding_left = 5
+  },
   updates = true,
 })
 
