@@ -48,7 +48,7 @@ cpu:subscribe("cpu_update", function(env)
 
   cpu:set({
     graph = { color = color },
-    label = "cpu " .. tonumber(env.total_load) .. "%",
+    label = "cpu " .. env.total_load .. "%",
   })
 end)
 
