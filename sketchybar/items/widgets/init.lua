@@ -13,7 +13,6 @@ function hasBattery()
 end
 
 if hasBattery() then
-  print("This device has a battery.")
   require("items.widgets.battery")
 end
 require("items.widgets.volume")
