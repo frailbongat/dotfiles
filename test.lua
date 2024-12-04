@@ -1,19 +1,17 @@
 -- Function to check if using an external display or built-in display on Mac
-function checkDisplayType()
-  local handle = io.popen("system_profiler SPDisplaysDataType")
+function checkDeviceType()
+  local handle = io.popen("system_profiler SPHardwareDataType")
   local result = handle:read("*a")
   handle:close()
 
-  -- Print the result for debugging purposes
-  print(result)
-
-  -- Check if the result contains a display that is not built-in
-  if result:find("Built-In") then
-      return "Built-in Display"
+  -- Check for Mac Mini or laptop keywords
+  if result:find("Mac mini") then
+    return "Mac Mini"
+  elseif result:find("MacBook") then
+    return "Laptop"
   else
-      return "External Display"
+    return "Unknown Mac Type"
   end
 end
 
--- Example usage
-print("You are using: " .. checkDisplayType())
+print("You are using: " .. checkDeviceType())
