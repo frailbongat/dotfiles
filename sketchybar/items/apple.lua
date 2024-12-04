@@ -11,7 +11,7 @@ local apple = sbar.add("item", {
     color = colors.green
   },
   background = {
-    padding_right = 5
+    padding_right = settings.group_paddings
   },
   label = { drawing = false },
   click_script = "$CONFIG_DIR/helpers/menus/bin/menus -s 0",

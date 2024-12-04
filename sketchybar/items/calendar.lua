@@ -13,7 +13,7 @@ local cal = sbar.add("item", {
   position = "right",
   update_freq = 30,
   background = {
-    padding_left = 5
+    padding_left = settings.group_paddings
   },
   label = { font = { family = settings.font.numbers } },
 })

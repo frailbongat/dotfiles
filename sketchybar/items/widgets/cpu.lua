@@ -10,7 +10,6 @@ local cpu = sbar.add("graph", "widgets.cpu" , 42, {
   position = "right",
   graph = { color = colors.blue },
   background = {
-    height = 22,
     color = { alpha = 0 },
     border_color = { alpha = 0 },
     drawing = true,
@@ -28,7 +27,7 @@ local cpu = sbar.add("graph", "widgets.cpu" , 42, {
     width = 0,
     y_offset = 4
   },
-  padding_right = settings.paddings + 6
+  padding_right = settings.paddings
 })
 
 cpu:subscribe("cpu_update", function(env)
@@ -49,7 +48,7 @@ cpu:subscribe("cpu_update", function(env)
 
   cpu:set({
     graph = { color = color },
-    label = "cpu " .. env.total_load .. "%",
+    label = "cpu " .. tonumber(env.total_load) .. "%",
   })
 end)
 
