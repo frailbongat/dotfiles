@@ -20,7 +20,7 @@ local media = sbar.add('item', 'media', {
 })
 
 media:subscribe('mouse.clicked', function(env)
-	sbar.exec('shortcuts run "playpause"')
+	sbar.exec("osascript -e 'tell application \"Spotify\" to playpause'")
 end)
 
 media:subscribe('media_change', function(env)
