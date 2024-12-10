@@ -33,9 +33,10 @@ yabai -m rule --add app="^Things3$" space=^1
 yabai -m rule --add app="^iTerm$" space=^1
 yabai -m rule --add app="^Figma$" space=2
 yabai -m rule --add app="^Slack$" space=2
-yabai -m rule --add app="^Messenger$" space=3
-yabai -m rule --add app="^Spotify$" space=3
-yabai -m rule --add app="^Spark Desktop$" space=4
+yabai -m rule --add app="^Obsidian$" space=3
+yabai -m rule --add app="^Spark Desktop$" space=3
+yabai -m rule --add app="^Messenger$" space=4
+yabai -m rule --add app="^Spotify$" space=4
 
 # disable apps
 yabai -m rule --add app="^(Calculator|Software Update|Dictionary|System Preferences|System Settings|zoom.us|Photo Booth|Archive Utility|App Store|Alfred|Activity Monitor)$" manage=off
