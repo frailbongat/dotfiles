@@ -50,8 +50,9 @@ yabai -m rule --add app="^Dota 2$" manage=off
 yabai -m rule --add app="^Obsidian$" manage=off
 yabai -m rule --add app="^ChatGPT$" manage=off
 yabai -m rule --add app="^Raindrop.io$" manage=off
+yabai -m rule --add app="^Hoppscotch$" manage=off
 
 # jankyborders
-borders active_color=0xffa6da95 inactive_color=0xff494d64 width=2.0 blacklist="Calculator, Software Update,Dictionary,System Preferences,System Settings,zoom.us,Photo Booth,Archive Utility,App Store,Alfred,Activity Monitor,Safari,Finder,System Information,1Password,Upwork,Pearcleaner,Dota 2,Obsidian,ChatGPT,Raindrop.io" &
+borders active_color=0xffa6da95 inactive_color=0xff494d64 width=2.0 blacklist="Calculator, Software Update,Dictionary,System Preferences,System Settings,zoom.us,Photo Booth,Archive Utility,App Store,Alfred,Activity Monitor,Safari,Finder,System Information,1Password,Upwork,Pearcleaner,Dota 2,Obsidian,ChatGPT,Hoppscotch" &
 
 echo "yabai configuration loaded.."
