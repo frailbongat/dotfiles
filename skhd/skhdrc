@@ -24,7 +24,7 @@ shift + cmd - k: yabai -m window --warp south
 shift + cmd - l: yabai -m window --warp east
 
 # app shortcuts
-alt - b: open -a 'Arc'
+alt - b: open -a 'Zen Browser'
 alt - c: open -a 'Visual Studio Code'
 alt - d: open -a 'Discord'
 alt - e: open -a 'Spark Desktop'
