@@ -44,6 +44,7 @@ yabai -m rule --add label="Safari" app="^Safari$" title="^(General|(Tab|Password
 yabai -m rule --add app="^Finder$" manage=off
 yabai -m rule --add label="About This Mac" app="System Information" title="About This Mac" manage=off
 yabai -m rule --add app="^1Password$" manage=off
+yabai -m rule --add app="^Bitwarden$" manage=off
 yabai -m rule --add app="^Upwork$" manage=off
 yabai -m rule --add app="^Pearcleaner$" manage=off
 yabai -m rule --add app="^Dota 2$" manage=off
@@ -59,6 +60,6 @@ yabai -m rule --add app="^iTerm2$" manage=off
 yabai -m rule --add label="WhatsApp" app="WhatsApp" manage=off
 
 # jankyborders
-borders active_color=0xffa6da95 inactive_color=0xff494d64 width=2.0 blacklist="Calculator, Software Update,Dictionary,System Preferences,System Settings,zoom.us,Photo Booth,Archive Utility,App Store,Alfred,Activity Monitor,Safari,Finder,System Information,1Password,Upwork,Pearcleaner,Dota 2,Obsidian,ChatGPT,Hoppscotch,Rakuten Viber,Notes,Permute 3,OrbStack,iTerm2,WhatsApp" &
+borders active_color=0xffa6da95 inactive_color=0xff494d64 width=2.0 blacklist="Calculator, Software Update,Dictionary,System Preferences,System Settings,zoom.us,Photo Booth,Archive Utility,App Store,Alfred,Activity Monitor,Safari,Finder,System Information,1Password,Bitwarden,Upwork,Pearcleaner,Dota 2,Obsidian,ChatGPT,Hoppscotch,Rakuten Viber,Notes,Permute 3,OrbStack,iTerm2,WhatsApp" &
 
 echo "yabai configuration loaded.."
