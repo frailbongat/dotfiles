@@ -36,7 +36,7 @@ yabai -m rule --add app="^Figma$" space=2
 yabai -m rule --add app="^Slack$" space=2
 yabai -m rule --add app="^Spark Desktop$" space=3
 yabai -m rule --add app="^Legcord$" space=3
-yabai -m rule --add app="^Messenger$" space=4
+# yabai -m rule --add app="^Messenger$" space=4 # Floating messenger seems better
 yabai -m rule --add app="^Spotify$" space=4
 
 # disable apps
@@ -62,8 +62,10 @@ yabai -m rule --add label="WhatsApp" app="WhatsApp" manage=off
 yabai -m rule --add app="^TickTick$" manage=off
 yabai -m rule --add app="^QuickTime Player$" manage=off
 yabai -m rule --add app="^Yaak$" manage=off
+yabai -m rule --add app="^Messenger$" manage=off
+yabai -m rule --add app="^stremio$" manage=off
 
 # jankyborders
-borders active_color=0xffa6da95 inactive_color=0xff494d64 width=2.0 blacklist="Calculator, Software Update,Dictionary,System Preferences,System Settings,zoom.us,Photo Booth,Archive Utility,App Store,Alfred,Activity Monitor,Safari,Finder,System Information,1Password,Bitwarden,Upwork,Pearcleaner,Dota 2,Obsidian,ChatGPT,Hoppscotch,Rakuten Viber,Notes,Permute 3,OrbStack,iTerm2,WhatsApp,TickTick,QuickTime Player,Yaak" &
+borders active_color=0xffa6da95 inactive_color=0xff494d64 width=2.0 blacklist="Calculator, Software Update,Dictionary,System Preferences,System Settings,zoom.us,Photo Booth,Archive Utility,App Store,Alfred,Activity Monitor,Safari,Finder,System Information,1Password,Bitwarden,Upwork,Pearcleaner,Dota 2,Obsidian,ChatGPT,Hoppscotch,Rakuten Viber,Notes,Permute 3,OrbStack,iTerm2,WhatsApp,TickTick,QuickTime Player,Yaak,Messenger,stremio" &
 
 echo "yabai configuration loaded.."
