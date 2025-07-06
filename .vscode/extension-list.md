@@ -1,0 +1,16 @@
+aaron-bond.better-comments
+alefragnani.project-manager
+ardenivanov.svelte-intellisense
+bradlc.vscode-tailwindcss
+chanzhaoyu.svelte-5-snippets
+dbaeumer.vscode-eslint
+esbenp.prettier-vscode
+formulahendry.auto-rename-tag
+selemondev.vscode-shadcn-svelte
+streetsidesoftware.code-spell-checker
+subframe7536.custom-ui-style
+svelte.svelte-vscode
+tamasfe.even-better-toml
+thang-nm.catppuccin-perfect-icons
+usernamehw.errorlens
+zhuangtongfa.material-theme
