@@ -28,8 +28,6 @@ yabai -m config insert_feedback_color 0xff9dd274
 
 # apps spaces
 yabai -m rule --add app="^Visual Studio Code$" space=^1
-yabai -m rule --add app="^Zed$" space=^1
-yabai -m rule --add app="^Arc$" space=^1
 yabai -m rule --add app="^Zen Browser$" space=^1
 yabai -m rule --add app="^Things3$" space=^1
 yabai -m rule --add app="^Figma$" space=2
