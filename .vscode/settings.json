@@ -1,0 +1,247 @@
+{
+  // Color theme and UI
+  "workbench.colorTheme": "One Dark Pro Flat",
+  "oneDarkPro.editorTheme": "One Dark Pro Darker",
+  "workbench.activityBar.location": "hidden",
+  "workbench.editor.showTabs": "single",
+  "workbench.statusBar.visible": false,
+  "workbench.startupEditor": "none",
+  "workbench.tips.enabled": false,
+  "editor.minimap.enabled": false,
+  "breadcrumbs.enabled": false,
+
+  // Sidebar and file explorer
+  "workbench.sideBar.location": "right",
+  "workbench.iconTheme": "catppuccin-perfect-ayu",
+  // Todo: add hide explorer arrows
+  "workbench.tree.enableStickyScroll": false,
+  "workbench.tree.renderIndentGuides": "none",
+  "workbench.tree.indent": 8,
+  "explorer.compactFolders": false,
+  "explorer.confirmDragAndDrop": false,
+  "explorer.confirmDelete": false,
+  "search.decorations.badges": false,
+  "git.decorations.enabled": false,
+
+  // Custom UI style
+  "window.zoomLevel": 1, // 3
+  "window.titleBarStyle": "native",
+  "custom-ui-style.font.sansSerif": "Dank Mono",
+  "custom-ui-style.electron": {
+    "titleBarStyle": "hiddenInset",
+    "trafficLightPosition": {
+      "x": 20,
+      "y": 12
+    }
+  },
+  "custom-ui-style.stylesheet": {
+    ".notification-toast": "box-shadow: none !important",
+    ".quick-input-widget.show-file-icons": "box-shadow: none !important",
+    ".quick-input-widget": "top: 25vh !important",
+    ".quick-input-list .scrollbar": "display: none",
+    ".monaco-action-bar.quick-input-inline-action-bar": "display: none",
+    ".editor-widget.find-widget": "box-shadow: none; border-radius: 4px",
+    ".quick-input-titlebar": "background: #100B15 !important",
+    ".monaco-workbench .part.editor > .content .editor-group-container > .title.title-border-bottom:after": "display: none",
+    ".monaco-scrollable-element > .shadow.top": "display: none",
+    ".sidebar .title-label": "padding: 0 !important",
+    ".sidebar": "border: none !important",
+    ".monaco-workbench .monaco-list:not(.element-focused):focus:before": "outline: none !important",
+    ".monaco-list-row.focused": "outline: none !important",
+    ".monaco-editor .scroll-decoration": "display: none",
+    ".title-actions": "display: none !important",
+    ".title.show-file-icons .label-container .monaco-icon-label.file-icon": "justify-content: start; padding: 0 !important; padding-left: 20px !important",
+    ".title .monaco-icon-label:after": "margin-right: 0",
+    ".monaco-workbench .part.editor > .content .editor-group-container > .title > .label-container > .title-label": "padding-left: 60px",
+    // ".sidebar.part.sidebar.right > div > div > div:first-child": "display: none", // !bug: hides folders and files when sidebar is on the right
+    ".pane-header.expanded.not-collapsible": "margin: 6px 12px 0 12px"
+  },
+
+  // Editor
+  "editor.multiCursorModifier": "ctrlCmd",
+  "editor.fontFamily": "Dank Mono",
+  "editor.fontSize": 14,
+  "editor.fontLigatures": true,
+  "editor.lineHeight": 2.0,
+  "editor.stickyScroll.enabled": false,
+  "editor.codeLens": false,
+  "editor.links": false,
+  "editor.lightbulb.enabled": "off",
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
+  "editor.tabSize": 2,
+  "editor.guides.indentation": false,
+  "editor.occurrencesHighlight": "off",
+  "editor.scrollbar.horizontal": "hidden",
+  "editor.scrollbar.vertical": "hidden",
+  "editor.overviewRulerBorder": false,
+  "editor.hideCursorInOverviewRuler": true,
+  "chat.editor.fontWeight": "bold",
+  "editor.suggestFontSize": 16,
+  "editor.suggestLineHeight": 28,
+  "editor.tabCompletion": "on",
+  "editor.inlineSuggest.enabled": true,
+
+  // Terminal
+  "terminal.integrated.fontWeight": "500",
+  "terminal.integrated.fontWeightBold": "600",
+  "terminal.integrated.fontSize": 14,
+  "terminal.integrated.lineHeight": 1.5,
+  "terminal.integrated.fontFamily": "Dank Mono",
+  "terminal.integrated.cursorStyle": "line",
+  "terminal.integrated.tabs.enabled": true,
+  "terminal.integrated.enableMultiLinePasteWarning": "never",
+  "editor.bracketPairColorization.enabled": true,
+  "editor.guides.bracketPairs": "active",
+
+  // Svelte
+  "svelte.enable-ts-plugin": true,
+
+  // Prettier
+  "editor.formatOnSave": true,
+  "javascript.preferences.quoteStyle": "single",
+  "typescript.preferences.quoteStyle": "single",
+  "prettier.jsxSingleQuote": true,
+  "prettier.singleQuote": true,
+  "editor.wordWrap": "on",
+  "git.confirmSync": false,
+  "editor.fontWeight": "100",
+  "css.validate": false,
+  "editor.suggestSelection": "first",
+  "emmet.excludeLanguages": ["markdown"],
+  "prettier.configPath": ".prettierrc",
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "[svelte]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[jsonc]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[html]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[javascriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "javascript.updateImportsOnFileMove.enabled": "always",
+  "[javascript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "emmet.includeLanguages": {
+    "javascript": "javascriptreact"
+  },
+  "[json]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+
+  // Spelling
+  "cSpell.userWords": [
+    "aede",
+    "autoraise",
+    "avataaars",
+    "bigserial",
+    "Bitwarden",
+    "Bongat",
+    "bottts",
+    "Channeld",
+    "Chromecast",
+    "clsx",
+    "commitlint",
+    "confs",
+    "csvg",
+    "cusomisation",
+    "datepicker",
+    "dbname",
+    "dicebear",
+    "domtoimage",
+    "Dota",
+    "dotlottie",
+    "EMAILREGEX",
+    "fecha",
+    "ffdbb",
+    "ffdfbf",
+    "Firestick",
+    "flowbite",
+    "fontsource",
+    "formik",
+    "frailbongat",
+    "grayblue",
+    "graycool",
+    "grayiron",
+    "graymodern",
+    "grayneutral",
+    "graytrue",
+    "graywarm",
+    "headlessui",
+    "headshot",
+    "healthcheck",
+    "heroicons",
+    "Hoppscotch",
+    "Insta",
+    "isready",
+    "jankyborders",
+    "jsencrypt",
+    "leadconnectorhq",
+    "Legcord",
+    "lightgreen",
+    "Lofi",
+    "lottiefiles",
+    "moddatetime",
+    "mybudget",
+    "nodownload",
+    "paneforge",
+    "Pearcleaner",
+    "persistor",
+    "preact",
+    "Pressable",
+    "quarterary",
+    "Rakuten",
+    "Rhye",
+    "rocicorp",
+    "shadcn",
+    "smallserial",
+    "snaplet",
+    "sonner",
+    "stremio",
+    "supabase",
+    "superforms",
+    "svgr",
+    "tabler",
+    "tailgrids",
+    "tailwindcss",
+    "tanstack",
+    "toastify",
+    "Upwork",
+    "uuidv",
+    "vapi",
+    "webp",
+    "Yaak",
+    "yabai",
+    "Zeni",
+    "zstart",
+    "zustand"
+  ],
+
+  // Misc
+  "security.workspace.trust.untrustedFiles": "open",
+  "files.exclude": {
+    "**/.DS_Store": false
+  },
+  "workbench.editor.labelFormat": "short",
+  "scm.inputFontSize": 15,
+  "debug.console.fontSize": 15,
+  "markdown.preview.fontSize": 15,
+  "errorLens.excludeBySource": ["svelte(parse-error)", "ts(2304)", "ts(2339)"],
+  "projectManager.sortList": "Name",
+  "eslint.validate": ["javascript", "javascriptreact", "svelte"],
+  "tailwindCSS.experimental.classRegex": [
+    ["cva\\(([^)]*)\\)", "[\"'`]([^\"'`]*).*?[\"'`]"],
+    ["cx\\(([^)]*)\\)", "(?:'|\"|`)([^']*)(?:'|\"|`)"]
+  ],
+  "terminal.integrated.tabs.enableAnimation": false,
+  "workbench.settings.editor": "json",
+  "editor.accessibilitySupport": "off"
+}

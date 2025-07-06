@@ -25,7 +25,7 @@ shift + cmd - l: yabai -m window --warp east
 
 # app shortcuts
 alt - b: open -a 'Zen Browser'
-alt - c: open -a 'Cursor'
+alt - c: open -a 'Zed'
 alt - d: open -a 'Legcord'
 alt - e: open -a 'Spark Desktop'
 alt - f: open -a 'Figma'
