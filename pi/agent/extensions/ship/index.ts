@@ -719,27 +719,12 @@ async function runShip(
     refuseSensitivePaths(candidatePaths);
 
     // Nothing staged is the normal path: the documented workflow is to review an
-    // unstaged tree and then ship it. `add -A` sweeps in anything else sitting
-    // there, so confirm the exact set rather than assuming it is one coherent
-    // change. Print mode has no dialog, so it keeps the previous behaviour.
-    if (ctx.hasUI) {
-      const preview = candidatePaths.slice(0, 20).join("\n");
-      const remainder =
-        candidatePaths.length > 20
-          ? `\n…and ${candidatePaths.length - 20} more`
-          : "";
-      const approved = await ctx.ui.confirm(
-        `Stage all ${candidatePaths.length} changed file(s)?`,
-        `${preview}${remainder}\n\nStage these as one commit? Cancel to stage a subset yourself, then rerun /ship.`,
-      );
-      if (!approved) {
-        ctx.ui.notify(
-          "/ship cancelled. Stage the files you want, then run /ship again.",
-          "info",
-        );
-        return;
-      }
-    }
+    // unstaged tree and then ship it, so stage everything and say what was swept
+    // in. To ship a subset, stage it yourself first and /ship uses only that.
+    ctx.ui.notify(
+      `Staging ${candidatePaths.length} changed file(s) with no staged changes present.`,
+      "info",
+    );
 
     await requireSuccess(git, ["add", "-A"], "Staging current changes");
     stagedPaths = await listStagedPaths(git);
