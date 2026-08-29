@@ -1,0 +1,17 @@
+# Tracked in the dotfiles repo. Do NOT put your name, email, or any token here.
+#
+# Identity lives in ~/.gitconfig.local, which is never committed.
+# install.sh creates it on a new machine.
+[include]
+	path = ~/.gitconfig.local
+
+[init]
+	defaultBranch = main
+[pull]
+	rebase = true
+[push]
+	autoSetupRemote = true
+[core]
+	editor = vim
+[fetch]
+	prune = true

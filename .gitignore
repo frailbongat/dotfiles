@@ -1,21 +1,66 @@
-borders/
-configstore/
-filezilla/
-gh/
-github-copilot/
-helix/
-iterm2/
-karabiner/
-kitty/
-medusa/
-op/
-shopify/
-simple-update-notifier/
-svim/
-yarn/
-zed/
-starship.toml
-sketchybar-app-font/
-sketchybar_backup/
-spicetify/
-raycast/
+# ============================================================
+# WHITELIST. Everything is ignored by default.
+# Nothing reaches GitHub unless it is un-ignored below.
+# To add a folder later, add a line:  !/foldername/
+# ============================================================
+/*
+
+# --- Repo files ---
+!/.gitignore
+!/README.md
+!/install.sh
+!/Brewfile
+
+# --- Included config ---
+!/yabai/
+!/skhd/
+!/sketchybar/
+!/pi/
+!/.vscode/
+!/mcp/
+!/home/
+
+# Identity file. Belongs in ~/.gitconfig.local, outside this repo.
+# Belt and braces in case it is ever copied in here.
+.gitconfig.local
+*.local
+
+# ============================================================
+# pi: config only. Auth, chat history, and caches stay local.
+# ============================================================
+/pi/agent/auth.json
+/pi/agent/cliproxyapi.json
+/pi/agent/models-store.json
+/pi/agent/mcp-cache.json
+/pi/agent/mcp-npx-cache.json
+/pi/agent/mcp-onboarding.json
+/pi/agent/trust.json
+/pi/agent/run-history.jsonl
+/pi/agent/sessions/
+/pi/agent/missions/
+/pi/agent/tmp/
+/pi/agent/npm/
+/pi/agent/bin/
+/pi/context-mode/
+/pi/workbench/
+/pi/web-search-cache/
+
+# ============================================================
+# Junk, inside any included folder
+# ============================================================
+.DS_Store
+node_modules/
+*.log
+*.bak
+*.orig
+*~
+*.sock
+*.mdb
+
+# Never, under any circumstance
+*credentials*
+*.pem
+*.key
+*.p12
+.env
+.env.*

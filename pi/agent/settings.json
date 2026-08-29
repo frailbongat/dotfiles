@@ -1,0 +1,20 @@
+{
+  "lastChangelogVersion": "0.84.4",
+  "theme": "github-dark-default",
+  "defaultProvider": "cliproxyapi",
+  "defaultModel": "claude-opus-5",
+  "defaultThinkingLevel": "high",
+  "enabledModels": [
+    "openai-codex/gpt-5.6-sol",
+    "cliproxyapi/claude-opus-5",
+    "cliproxyapi/claude-fable-5"
+  ],
+  "packages": [
+    "npm:pi-web-access",
+    "npm:pi-mcp-adapter",
+    {
+      "source": "npm:@router-for-me/pi-cliproxyapi-provider",
+      "extensions": ["!tps.ts"]
+    }
+  ]
+}

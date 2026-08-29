@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "context7": {
+      "url": "https://mcp.context7.com/mcp/oauth",
+      "auth": "oauth",
+      "lifecycle": "lazy",
+      "directTools": true
+    }
+  }
+}

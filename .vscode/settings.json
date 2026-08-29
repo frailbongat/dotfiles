@@ -1,6 +1,6 @@
 {
   // Color theme and UI
-  "workbench.colorTheme": "One Dark Pro Flat",
+  "workbench.colorTheme": "GitHub Dark Default",
   "oneDarkPro.editorTheme": "One Dark Pro Darker",
   "workbench.activityBar.location": "hidden",
   "workbench.editor.showTabs": "single",

@@ -24,17 +24,28 @@ shift + cmd - k: yabai -m window --warp south
 shift + cmd - l: yabai -m window --warp east
 
 # app shortcuts
-# alt - b: open -a 'Zen Browser'
-alt - b: open -a 'Vivaldi'
+# follow.sh: unmanaged (manage=off) apps get dragged to whatever space you're on
+# plain open -a: tiled apps keep their space, hotkey jumps to them
+alt - b: open -a 'Google Chrome'
+alt + shift - b: ~/.config/skhd/follow.sh '^Zen$' 'Zen Browser'
+# alt - b: open -a 'Vivaldi'
 alt - c: open -a 'Visual Studio Code'
-alt - d: open -a 'Legcord'
+# alt - c: open -a 'ChatGPT'
+alt - d: ~/.config/skhd/follow.sh '^Beeper$' 'Beeper Desktop'
+# alt - d: open -a 'Discord'
+alt - g: open -a 'Discord'
 alt - e: open -a 'Spark Desktop'
 alt + shift - f: open -a 'Figma'
-alt - h: open -a 'Hoppscotch'
+alt - h: ~/.config/skhd/follow.sh '^Hoppscotch$' 'Hoppscotch'
 alt - m: open -a 'Spotify'
-alt - n: open -a 'Messenger'
-alt - o: open -a 'Obsidian'
-alt - r: open -a 'Raindrop.io.app'
+alt - n: ~/.config/skhd/follow.sh '^Messenger$' 'Messenger'
+alt + shift - n: ~/.config/skhd/follow.sh '^Messages$' 'Messages'
+alt - o: ~/.config/skhd/follow.sh '^Obsidian$' 'Obsidian'
+alt - r: ~/.config/skhd/follow.sh '^Raindrop.io$' 'Raindrop.io.app'
 alt - s: open -a 'Slack'
-alt - t: open -a 'TickTick'
-alt - z: open -a 'iTerm'
+alt - t: open -a 'Things3'
+# alt - z: open -a 'iTerm'
+alt - z: open -a 'Visual Studio Code'
+# alt - a: open -a 'Seanime Denshi'
+alt - 5: ~/.config/skhd/follow.sh '^PS Remote Play$' 'PS Remote Play'
+alt - p : yabai -m window --toggle float

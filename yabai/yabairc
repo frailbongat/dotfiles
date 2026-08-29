@@ -28,13 +28,14 @@ yabai -m config insert_feedback_color 0xff9dd274
 
 # apps spaces
 yabai -m rule --add app="^Visual Studio Code$" space=^1
-yabai -m rule --add app="^Zen Browser$" space=^1
+# yabai -m rule --add app="^Zen$" space=^1  # pinned Zen to space 1, removed
 yabai -m rule --add app="^Vivaldi$" space=^1
 yabai -m rule --add app="^Things3$" space=^1
 yabai -m rule --add app="^Figma$" space=2
 yabai -m rule --add app="^Slack$" space=2
 yabai -m rule --add app="^Spark Desktop$" space=3
-yabai -m rule --add app="^Legcord$" space=3
+# yabai -m rule --add app="^Legcord$" space=3
+yabai -m rule --add app="^Discord$" space=3
 yabai -m rule --add app="^PS Remote Play$" space=3
 # yabai -m rule --add app="^Messenger$" space=4 # Floating messenger seems better
 yabai -m rule --add app="^Spotify$" space=4
@@ -50,7 +51,6 @@ yabai -m rule --add app="^Upwork$" manage=off
 yabai -m rule --add app="^Pearcleaner$" manage=off
 yabai -m rule --add app="^Dota 2$" manage=off
 yabai -m rule --add app="^Obsidian$" manage=off
-yabai -m rule --add app="^ChatGPT$" manage=off
 yabai -m rule --add app="^Raindrop.io$" manage=off
 yabai -m rule --add app="^Hoppscotch$" manage=off
 yabai -m rule --add app="^Rakuten Viber$" manage=off
@@ -63,8 +63,29 @@ yabai -m rule --add app="^TickTick$" manage=off
 yabai -m rule --add app="^QuickTime Player$" manage=off
 yabai -m rule --add app="^Yaak$" manage=off
 yabai -m rule --add app="^Messenger$" manage=off
+yabai -m rule --add app="^Messages$" manage=off
 yabai -m rule --add app="^stremio$" manage=off
 yabai -m rule --add app="^Safari$" manage=off
+yabai -m rule --add app="^PS Remote Play$" manage=off
+yabai -m rule --add app="^AnimeKAI$" manage=off
+yabai -m rule --add app="^Claude$" manage=off
+yabai -m rule --add app="^Things$" manage=off
+yabai -m rule --add app="^Calendar$" manage=off
+yabai -m rule --add app="^Reminders$" manage=off
+yabai -m rule --add app="^iloader$" manage=off
+yabai -m rule --add app="^mangayomi$" manage=off
+yabai -m rule --add app="^anymex$" manage=off
+yabai -m rule --add app="^Hayase$" manage=off
+yabai -m rule --add app="^Seanime Denshi$" manage=off
+# yabai -m rule --add app="^Google Chrome$" manage=off
+yabai -m rule --add app="^Nuvio$" manage=off
+yabai -m rule --add app="^Zed$" manage=off
+# yabai -m rule --add app="^Code$" manage=off
+yabai -m rule --add app="^Zero$" manage=off
+yabai -m rule --add app="^Facebook$" manage=off
+yabai -m rule --add app="^Messenger$" manage=off
+yabai -m rule --add app="^Beeper$" manage=off
+yabai -m rule --add app="^Zen$" manage=off
 
 # jankyborders
 # borders active_color=0xffa6da95 inactive_color=0xff494d64 width=2.0 blacklist="Calculator, Software Update,Dictionary,System Preferences,System Settings,zoom.us,Photo Booth,Archive Utility,App Store,Alfred,Activity Monitor,Safari,Finder,System Information,1Password,Bitwarden,Upwork,Pearcleaner,Dota 2,Obsidian,ChatGPT,Hoppscotch,Rakuten Viber,Notes,Permute 3,OrbStack,iTerm2,WhatsApp,TickTick,QuickTime Player,Yaak,Messenger,stremio" &
