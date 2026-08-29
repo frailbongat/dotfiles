@@ -410,5 +410,5 @@
   "inferenceBaseUrl": "http://127.0.0.1:8317/backend-api/",
   "modelsUrl": "http://127.0.0.1:8317/v1/models?client_version=pi",
   "fastMode": false,
-  "fetchedAt": 1787977074152
+  "fetchedAt": 1787982370671
 }

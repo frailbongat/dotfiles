@@ -137,7 +137,7 @@ export PATH="$PATH:/Users/frailbongat/.lmstudio/bin"
 export PATH="$HOME/.local/bin:$PATH"
 
 # Prefer Zed for editor launches.
-export EDITOR="zed --wait"
+export EDITOR="code --wait"
 export VISUAL="$EDITOR"
 
 # opencode
