@@ -12,6 +12,9 @@ git clone https://github.com/frailbongat/dotfiles.git ~/.config
 ~/.config/install.sh
 ```
 
+`install.sh` also clones [frailbongat/agents](https://github.com/frailbongat/agents) into `~/.agents`
+for your agent skills.
+
 ## What is tracked
 
 | Folder | What it is |
@@ -26,6 +29,18 @@ git clone https://github.com/frailbongat/dotfiles.git ~/.config
 | `Brewfile` | Every brew formula and cask |
 
 Everything else in `~/.config` stays on this machine only.
+
+## Agent skills live in a second repo
+
+`~/.agents` is not part of this repo. It is [frailbongat/agents](https://github.com/frailbongat/agents),
+a public skill library that mostly vendors other people's MIT and Apache work, so it keeps its own
+LICENSE and NOTICE.md. `install.sh` clones it for you.
+
+The line is: pi-specific config (`settings.json`, `models.json`, `themes/`, `extensions/`, `prompts/`)
+lives here. Tool-agnostic skills live in `~/.agents/skills/`. pi reads both.
+
+`~/.config/mcp/mcp.json` stays here on purpose. It is precedence 1. `~/.agents/mcp.json` is only
+precedence 2, so moving it would demote it.
 
 ## Git identity is not in here
 

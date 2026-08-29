@@ -64,7 +64,19 @@ for src in "$CONFIG"/pi/agent/*; do
   echo "    $dest"
 done
 
-# 6. Build sketchybar C helpers
+# 6. Agent skills library -> ~/.agents. Separate repo, read by pi and other agents.
+if [ -d "$HOME/.agents/.git" ]; then
+  info "Agent skills already present at ~/.agents"
+elif [ -e "$HOME/.agents" ]; then
+  mv "$HOME/.agents" "$HOME/.agents.backup-$(date +%Y%m%d%H%M%S)"
+  info "Backed up existing ~/.agents, cloning agent skills"
+  git clone https://github.com/frailbongat/agents.git "$HOME/.agents"
+else
+  info "Cloning agent skills into ~/.agents"
+  git clone https://github.com/frailbongat/agents.git "$HOME/.agents"
+fi
+
+# 7. Build sketchybar C helpers
 if [ -d "$CONFIG/sketchybar/helpers" ]; then
   info "Building sketchybar helpers"
   make -C "$CONFIG/sketchybar/helpers"
@@ -72,7 +84,7 @@ fi
 
 cat <<'EOF'
 
-Done. yabai, skhd, sketchybar, pi, and VS Code settings are in place.
+Done. yabai, skhd, sketchybar, pi, agent skills, and VS Code settings are in place.
 
 Still manual:
   - Start the services:
