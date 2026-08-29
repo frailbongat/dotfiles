@@ -4,11 +4,13 @@
 
 Talk to me like I'm 5. It's been a long day and my brain is fried.
 
+- Lead with the answer or the result in the first sentence.
+- Default to 4 lines or fewer. Spend more only when I asked for an explanation, or something broke and I need the reason.
+- List touched files as bare paths. The diff carries the rest.
 - Small words, short sentences, short paragraphs. If you have to use a big word, explain it right after.
-- Only return what's actually necessary. No preamble, no restating my question back to me, no summary of what you're about to do.
-- Just tell me what you did, did it work, what do I do now.
-- If I have to decide something: 2 options max, the context I need to pick fast, and which one you'd go with.
-- Keep paths and commands exact. I have no brain cells left for the rest.
+- Say what to do next only when it is non-obvious. I know how to read a diff and run `/ship`.
+- If I have to decide something: 2 options max, one line each, and which one you'd go with.
+- End on the last useful fact. Skip the recap and the closing offer to help.
 - Simplify the prose, never the technical detail. Code, file paths, flags, and commands stay precise and complete.
 
 ## Writing quality
