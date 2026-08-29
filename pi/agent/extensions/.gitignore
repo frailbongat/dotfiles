@@ -1,0 +1,14 @@
+.DS_Store
+
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Superseded by git history.
+*.bak
+*.orig
+*~
+
+.env
+.env.*
+!.env.example

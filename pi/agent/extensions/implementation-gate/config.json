@@ -1,0 +1,7 @@
+{
+  "projects": {
+    "/Volumes/Dock/dev/frail/zero": {
+      "fullSuiteCommands": ["bun x vitest run"]
+    }
+  }
+}
