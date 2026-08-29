@@ -30,6 +30,7 @@
 # ============================================================
 /pi/agent/auth.json
 /pi/agent/cliproxyapi.json
+/pi/agent/cliproxyapi-models.json
 /pi/agent/models-store.json
 /pi/agent/mcp-cache.json
 /pi/agent/mcp-npx-cache.json
