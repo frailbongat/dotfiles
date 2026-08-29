@@ -844,7 +844,7 @@ async function runShip(
   }
 
   ctx.ui.notify(
-    `Shipped ${commitHash} to ${branch}: ${message.split("\n")[0]} | checks: ${checkSummary}`,
+    `Shipped ${commitHash} to ${branch}: ${message.split("\n")[0]}\nchecks: ${checkSummary}`,
     "info",
   );
 }
