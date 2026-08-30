@@ -76,7 +76,17 @@ else
   git clone https://github.com/frailbongat/agents.git "$HOME/.agents"
 fi
 
-# 7. Build sketchybar C helpers
+# 7. macOS defaults
+#    workspaces-auto-swoosh is "When switching to an application, switch to a
+#    Space with open windows for the application". macOS applies it even when
+#    the app has zero open windows, so a closed-but-running app drags you back
+#    to its old space. Off. ~/.config/yabai/travel.sh does the travelling
+#    instead, and only when there is actually a window to travel to.
+info "Setting macOS defaults"
+defaults write com.apple.dock workspaces-auto-swoosh -bool NO
+killall Dock 2>/dev/null || true
+
+# 8. Build sketchybar C helpers
 if [ -d "$CONFIG/sketchybar/helpers" ]; then
   info "Building sketchybar helpers"
   make -C "$CONFIG/sketchybar/helpers"
@@ -84,7 +94,8 @@ fi
 
 cat <<'EOF'
 
-Done. yabai, skhd, sketchybar, pi, agent skills, and VS Code settings are in place.
+Done. yabai, skhd, sketchybar, pi, agent skills, macOS defaults, and VS Code
+settings are in place.
 
 Still manual:
   - Start the services:

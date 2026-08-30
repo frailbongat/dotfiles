@@ -3,6 +3,21 @@
 sudo yabai --load-sa
 yabai -m signal --add event=dock_did_restart action="sudo yabai --load-sa"
 
+# Open apps on the space you are actually looking at. travel.sh handles apps
+# that already have a window, place.sh catches the window of an app that had
+# none. Requires the Dock default workspaces-auto-swoosh to be NO, which
+# install.sh sets. Both scripts have the full explanation at the top.
+yabai -m signal --add event=application_activated action="~/.config/yabai/travel.sh \$YABAI_PROCESS_ID"
+yabai -m signal --add event=window_created action="~/.config/yabai/place.sh \$YABAI_WINDOW_ID"
+
+# Tracing for the two signals above. Silent unless /tmp/yabai-debug exists.
+# Window close and space change are the events you need to read the log, and
+# they are the ones yabai does not otherwise record.
+yabai -m signal --add label=dbg_destroy event=window_destroyed \
+  action='[ -f /tmp/yabai-debug ] && echo "$(date "+%H:%M:%S") DESTROY wid=$YABAI_WINDOW_ID" >> /tmp/travel.log'
+yabai -m signal --add label=dbg_space event=space_changed \
+  action='[ -f /tmp/yabai-debug ] && echo "$(date "+%H:%M:%S") SPACE -> $(yabai -m query --spaces | jq -r ".[] | select(.\"has-focus\") | .index")" >> /tmp/travel.log'
+
 # defaults
 yabai -m config layout bsp
 
@@ -27,18 +42,16 @@ yabai -m config window_placement second_child
 yabai -m config insert_feedback_color 0xff9dd274
 
 # apps spaces
-yabai -m rule --add app="^Visual Studio Code$" space=^1
-# yabai -m rule --add app="^Zen$" space=^1  # pinned Zen to space 1, removed
-yabai -m rule --add app="^Vivaldi$" space=^1
-yabai -m rule --add app="^Things3$" space=^1
-yabai -m rule --add app="^Figma$" space=2
-yabai -m rule --add app="^Slack$" space=2
-yabai -m rule --add app="^Spark Desktop$" space=3
-# yabai -m rule --add app="^Legcord$" space=3
-yabai -m rule --add app="^Discord$" space=3
-yabai -m rule --add app="^PS Remote Play$" space=3
-# yabai -m rule --add app="^Messenger$" space=4 # Floating messenger seems better
-yabai -m rule --add app="^Spotify$" space=4
+#
+# The old `space=` pins are gone. They fired on every window creation, so a
+# first launch always got yanked to a fixed space instead of opening where you
+# were standing. Placement now lives in ~/.config/skhd/jump.sh:
+#
+#   window exists -> focus it, you travel to its space
+#   no window     -> open on the space you're already on
+#
+# Old pins, kept for reference: Code/Vivaldi/Things3 -> 1, Figma/Slack -> 2,
+# Spark/Discord/PS Remote Play -> 3, Spotify -> 4.
 
 # disable apps
 yabai -m rule --add app="^(Calculator|Software Update|Dictionary|System Preferences|System Settings|zoom.us|Photo Booth|Archive Utility|App Store|Alfred|Activity Monitor)$" manage=off

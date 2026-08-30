@@ -24,28 +24,29 @@ shift + cmd - k: yabai -m window --warp south
 shift + cmd - l: yabai -m window --warp east
 
 # app shortcuts
-# follow.sh: unmanaged (manage=off) apps get dragged to whatever space you're on
-# plain open -a: tiled apps keep their space, hotkey jumps to them
-alt - b: open -a 'Google Chrome'
+# follow.sh: window is dragged to whatever space you're on, every time
+# jump.sh:   window keeps its space and you travel to it, but a first launch
+#            (no window anywhere) opens on the space you're already on
+alt - b: ~/.config/skhd/jump.sh '^Google Chrome$' 'Google Chrome'
 alt + shift - b: ~/.config/skhd/follow.sh '^Zen$' 'Zen Browser'
-# alt - b: open -a 'Vivaldi'
-alt - c: open -a 'Visual Studio Code'
-# alt - c: open -a 'ChatGPT'
+# alt - b: ~/.config/skhd/jump.sh '^Vivaldi$' 'Vivaldi'
+alt - c: ~/.config/skhd/jump.sh '^Code$' 'Visual Studio Code'
+# alt - c: ~/.config/skhd/jump.sh '^ChatGPT$' 'ChatGPT'
 alt - d: ~/.config/skhd/follow.sh '^Beeper$' 'Beeper Desktop'
-# alt - d: open -a 'Discord'
-alt - g: open -a 'Discord'
-alt - e: open -a 'Spark Desktop'
-alt + shift - f: open -a 'Figma'
+# alt - d: ~/.config/skhd/jump.sh '^Discord$' 'Discord'
+alt - g: ~/.config/skhd/jump.sh '^Discord$' 'Discord'
+alt - e: ~/.config/skhd/jump.sh '^Spark Desktop$' 'Spark Desktop'
+alt + shift - f: ~/.config/skhd/jump.sh '^Figma$' 'Figma'
 alt - h: ~/.config/skhd/follow.sh '^Hoppscotch$' 'Hoppscotch'
-alt - m: open -a 'Spotify'
+alt - m: ~/.config/skhd/jump.sh '^Spotify$' 'Spotify'
 alt - n: ~/.config/skhd/follow.sh '^Messenger$' 'Messenger'
 alt + shift - n: ~/.config/skhd/follow.sh '^Messages$' 'Messages'
 alt - o: ~/.config/skhd/follow.sh '^Obsidian$' 'Obsidian'
 alt - r: ~/.config/skhd/follow.sh '^Raindrop.io$' 'Raindrop.io.app'
-alt - s: open -a 'Slack'
-alt - t: open -a 'Things3'
-# alt - z: open -a 'iTerm'
-alt - z: open -a 'Visual Studio Code'
+alt - s: ~/.config/skhd/jump.sh '^Slack$' 'Slack'
+alt - t: ~/.config/skhd/jump.sh '^Things$' 'Things3'
+# alt - z: ~/.config/skhd/jump.sh '^iTerm2$' 'iTerm'
+alt - z: ~/.config/skhd/jump.sh '^Code$' 'Visual Studio Code'
 # alt - a: open -a 'Seanime Denshi'
 alt - 5: ~/.config/skhd/follow.sh '^PS Remote Play$' 'PS Remote Play'
 alt - p : yabai -m window --toggle float
