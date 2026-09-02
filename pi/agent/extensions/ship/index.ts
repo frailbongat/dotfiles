@@ -5,7 +5,6 @@ import { tmpdir } from "node:os";
 import { uuidv7 } from "@earendil-works/pi-ai";
 import { complete } from "@earendil-works/pi-ai/compat";
 import type {
-  ExecResult,
   ExtensionAPI,
   ExtensionCommandContext,
 } from "@earendil-works/pi-coding-agent";
@@ -13,15 +12,43 @@ import {
   resolveGitHubRepository,
   type GitHubRepository,
 } from "./ship-repository";
+import {
+  displayOutput,
+  ensureFastForward,
+  pushWithRetry,
+  syncLocalTrunk,
+  type Git,
+  type GitCommandResult,
+  type PushPlan,
+} from "./ship-git";
+import {
+  currentBranch,
+  describeDestination,
+  resolveDestination,
+  type Destination,
+  type ShipOverride,
+} from "./ship-destination";
+
+import {
+  parseShipArguments,
+  type ShipArguments,
+} from "./ship-arguments";
 
 export { parseGitHubRepository } from "./ship-repository";
+export { ensureFastForward } from "./ship-git";
+export { resolveDestination, resolveTrunk } from "./ship-destination";
+export type { ShipOverride } from "./ship-destination";
+export {
+  parseShipArguments,
+  parseIssueNumberArgument,
+  type ShipArguments,
+} from "./ship-arguments";
 
 const GIT_TIMEOUT_MS = 30_000;
 const COMMIT_TIMEOUT_MS = 120_000;
 const PUSH_TIMEOUT_MS = 120_000;
 const MODEL_TIMEOUT_MS = 120_000;
 const MAX_DIFF_BYTES = 80_000;
-const MAX_ERROR_OUTPUT = 2_000;
 const CHECK_TIMEOUT_MS = 90_000;
 /** Beyond this, argv length and runtime stop being worth it; the hook path is better. */
 const MAX_CHECK_FILES = 200;
@@ -49,15 +76,22 @@ interface CheckSpec {
   readonly args: readonly string[];
   /** gofmt exits 0 and merely lists offenders, so stdout is the real signal. */
   readonly failOnStdout?: boolean;
+  /**
+   * Args that rewrite the file in place. A formatter that can fix its own
+   * complaint should fix it and restage, not abort a correct commit over
+   * whitespace. Linters have no `writeArgs` and still fail hard, because their
+   * findings need a human decision.
+   */
+  readonly writeArgs?: readonly string[];
 }
 
 const CHECK_SPECS: readonly CheckSpec[] = [
-  { label: "prettier", tool: "prettier", source: "local", exts: PRETTIER_EXTS, args: ["--check"] },
+  { label: "prettier", tool: "prettier", source: "local", exts: PRETTIER_EXTS, args: ["--check"], writeArgs: ["--write", "--log-level=warn"] },
   { label: "eslint", tool: "eslint", source: "local", exts: ESLINT_EXTS, args: [] },
   { label: "ruff check", tool: "ruff", source: "path", exts: ["py", "pyi"], args: ["check"] },
-  { label: "ruff format", tool: "ruff", source: "path", exts: ["py", "pyi"], args: ["format", "--check"] },
-  { label: "gofmt", tool: "gofmt", source: "path", exts: ["go"], args: ["-l"], failOnStdout: true },
-  { label: "rustfmt", tool: "rustfmt", source: "path", exts: ["rs"], args: ["--check"] },
+  { label: "ruff format", tool: "ruff", source: "path", exts: ["py", "pyi"], args: ["format", "--check"], writeArgs: ["format"] },
+  { label: "gofmt", tool: "gofmt", source: "path", exts: ["go"], args: ["-l"], failOnStdout: true, writeArgs: ["-w"] },
+  { label: "rustfmt", tool: "rustfmt", source: "path", exts: ["rs"], args: ["--check"], writeArgs: [] },
 ];
 
 const COMMIT_TYPES = [
@@ -98,8 +132,6 @@ Rules:
 - Breaking changes must include a BREAKING CHANGE: footer.
 - Never include fluff, first-person narration, emoji, Co-authored-by, or AI attribution.`;
 
-type Git = (args: string[], timeout?: number) => Promise<ExecResult>;
-
 type GitHubIssueReference = GitHubRepository & {
   issueNumber: string;
 };
@@ -108,17 +140,7 @@ type ValidationResult =
   | { ok: true; message: string }
   | { ok: false; error: string };
 
-function displayOutput(result: ExecResult): string {
-  const output = [result.stderr.trim(), result.stdout.trim()]
-    .filter(Boolean)
-    .join("\n");
-  if (!output) return "";
-  return output.length <= MAX_ERROR_OUTPUT
-    ? output
-    : `${output.slice(0, MAX_ERROR_OUTPUT)}\n…`;
-}
-
-function commandError(action: string, result: ExecResult): Error {
+function commandError(action: string, result: GitCommandResult): Error {
   const output = displayOutput(result);
   return new Error(
     `${action} failed (exit ${result.code})${output ? `:\n${output}` : ""}`,
@@ -133,15 +155,6 @@ function stripOuterCodeFence(value: string): string {
 
 function lineLength(value: string): number {
   return [...value].length;
-}
-
-export function parseIssueNumberArgument(raw: string): string | undefined {
-  const value = raw.trim();
-  if (!value) return undefined;
-  if (!/^[1-9]\d*$/.test(value) || !Number.isSafeInteger(Number(value))) {
-    throw new Error("Usage: /ship [issue-number] (example: /ship 174)");
-  }
-  return value;
 }
 
 export function validateCommitMessage(raw: string): ValidationResult {
@@ -568,6 +581,30 @@ async function listCheckFiles(git: Git): Promise<string[]> {
   return parseNullSeparated(result.stdout);
 }
 
+/**
+ * Files carrying both staged and unstaged edits. A formatter may rewrite them,
+ * but `git add` would then sweep in the hunks the user deliberately held back,
+ * so they fall through to the read-only check instead.
+ */
+async function listPartiallyStaged(git: Git): Promise<Set<string>> {
+  const result = await requireSuccess(
+    git,
+    ["diff", "--name-only", "-z", "--diff-filter=ACM"],
+    "Inspecting unstaged edits",
+  );
+  return new Set(parseNullSeparated(result.stdout));
+}
+
+/** Which of `files` the formatter just rewrote, relative to the staged tree. */
+async function listRewritten(git: Git, files: string[]): Promise<string[]> {
+  const result = await requireSuccess(
+    git,
+    ["diff", "--name-only", "-z", "--", ...files],
+    "Inspecting reformatted files",
+  );
+  return parseNullSeparated(result.stdout);
+}
+
 async function hasPreCommitHook(git: Git, repoRoot: string): Promise<boolean> {
   if (existsSync(join(repoRoot, ".husky", "pre-commit"))) return true;
   const gitDir = await git(["rev-parse", "--absolute-git-dir"]);
@@ -618,6 +655,7 @@ async function runStagedChecks(
     return `skipped (${files.length} files exceeds the ${MAX_CHECK_FILES}-file limit)`;
   }
 
+  const heldBack = await listPartiallyStaged(git);
   const ran: string[] = [];
   for (const spec of CHECK_SPECS) {
     const scoped = filesForSpec(files, spec);
@@ -626,21 +664,62 @@ async function runStagedChecks(
     const binary = await resolveTool(pi, spec, repoRoot);
     if (!binary) continue;
 
-    ctx.ui.notify(`Running ${spec.label} on ${scoped.length} file(s)…`, "info");
-    const result = await pi.exec(binary, [...spec.args, ...scoped], {
-      cwd: repoRoot,
-      timeout: CHECK_TIMEOUT_MS,
-    });
+    const fixable = spec.writeArgs
+      ? scoped.filter((file) => !heldBack.has(file))
+      : [];
+    const fixableSet = new Set(fixable);
+    const checkOnly = scoped.filter((file) => !fixableSet.has(file));
+    let fixed = 0;
 
-    const failed = spec.failOnStdout
-      ? result.code !== 0 || result.stdout.trim().length > 0
-      : result.code !== 0;
-    if (failed) {
-      throw new Error(
-        `${spec.label} failed; changes remain staged:\n${displayOutput(result)}`,
-      );
+    if (fixable.length > 0) {
+      ctx.ui.notify(`Running ${spec.label} on ${fixable.length} file(s)…`, "info");
+      const written = await pi.exec(binary, [...spec.writeArgs!, ...fixable], {
+        cwd: repoRoot,
+        timeout: CHECK_TIMEOUT_MS,
+      });
+      // A non-zero exit here is a parse error or a crash, not a style diff.
+      if (written.code !== 0) {
+        throw new Error(
+          `${spec.label} failed; changes remain staged:\n${displayOutput(written)}`,
+        );
+      }
+
+      const rewritten = await listRewritten(git, fixable);
+      if (rewritten.length > 0) {
+        await requireSuccess(
+          git,
+          ["add", "--", ...rewritten],
+          `Restaging ${spec.label} fixes`,
+        );
+        fixed = rewritten.length;
+      }
     }
-    ran.push(spec.label);
+
+    if (checkOnly.length > 0) {
+      ctx.ui.notify(`Checking ${spec.label} on ${checkOnly.length} file(s)…`, "info");
+      const result = await pi.exec(binary, [...spec.args, ...checkOnly], {
+        cwd: repoRoot,
+        timeout: CHECK_TIMEOUT_MS,
+      });
+
+      const failed = spec.failOnStdout
+        ? result.code !== 0 || result.stdout.trim().length > 0
+        : result.code !== 0;
+      if (failed) {
+        const hint = spec.writeArgs
+          ? "\nThese files have unstaged edits, so ship will not rewrite them. Format them yourself, or stage the rest of the file."
+          : "";
+        throw new Error(
+          `${spec.label} failed; changes remain staged:\n${displayOutput(result)}${hint}`,
+        );
+      }
+    }
+
+    ran.push(
+      fixed > 0
+        ? `${spec.label} (fixed ${fixed} file${fixed === 1 ? "" : "s"})`
+        : spec.label,
+    );
   }
 
   return ran.length > 0 ? ran.join(", ") : "skipped (no matching tool installed)";
@@ -654,10 +733,100 @@ function refuseSensitivePaths(paths: string[]): void {
   );
 }
 
-async function runShip(
+/** Markers that mean HEAD is mid-operation and not a thing to land anywhere. */
+const GIT_OPERATION_MARKERS = [
+  "rebase-merge",
+  "rebase-apply",
+  "MERGE_HEAD",
+  "CHERRY_PICK_HEAD",
+  "REVERT_HEAD",
+  "BISECT_LOG",
+];
+
+async function assertNoGitOperationInProgress(git: Git): Promise<void> {
+  const gitDir = await git(["rev-parse", "--absolute-git-dir"]);
+  if (gitDir.code !== 0) return;
+  const running = GIT_OPERATION_MARKERS.filter((marker) =>
+    existsSync(join(gitDir.stdout.trim(), marker)),
+  );
+  if (running.length > 0) {
+    throw new Error(
+      `Refusing to land while a git operation is in progress: ${running.join(", ")}`,
+    );
+  }
+}
+
+/**
+ * Everything `/ship`'s upstream handling does, for a destination branch instead.
+ *
+ * The commits already sitting between the destination and `HEAD` ride along
+ * with the push, so they are named and confirmed rather than swept in. Landing
+ * someone else's work in progress on the trunk is the one mistake here that a
+ * revert does not undo cleanly.
+ */
+async function assertLandable(
+  git: Git,
+  ctx: ExtensionCommandContext,
+  landOn: string,
+): Promise<void> {
+  await assertBranchPushable(git);
+  await ensureFastForward(git, landOn, (message) =>
+    ctx.ui.notify(message, "info"),
+  );
+
+  // Read after the rebase, so the confirmation names what will actually land
+  // rather than what would have landed before the trunk moved.
+  const ahead = await git(["log", "--oneline", `origin/${landOn}..HEAD`]);
+  const riders = ahead.stdout.trim();
+  if (!riders) return;
+
+  const count = riders.split("\n").length;
+  const question = `Also land ${count} existing commit${count === 1 ? "" : "s"} on ${landOn}?`;
+  const approved = ctx.hasUI
+    ? await ctx.ui.confirm(question, riders)
+    : false;
+  if (!approved) {
+    throw new Error(
+      `Refusing to land existing commits on ${landOn} unconfirmed:\n${riders}`,
+    );
+  }
+}
+
+/**
+ * The push argv and the ref it has to descend from, for either destination.
+ *
+ * `pushWithRetry` needs both, and it needs them to be the same shape, so that
+ * losing a race to a sibling worktree is one recovery path rather than two.
+ */
+function pushPlan(destination: Destination): PushPlan {
+  if (destination.kind === "trunk") {
+    return {
+      args: ["origin", `HEAD:${destination.ref}`],
+      syncRef: destination.ref,
+      label: `The push to origin/${destination.ref}`,
+    };
+  }
+  return {
+    args: destination.hasUpstream
+      ? []
+      : ["--set-upstream", "origin", destination.branch],
+    syncRef: destination.branch,
+    label: `The push to ${destination.branch}`,
+  };
+}
+
+/** A branch push still needs somewhere to go the first time it runs. */
+async function assertBranchPushable(git: Git): Promise<void> {
+  const origin = await git(["remote", "get-url", "--push", "origin"]);
+  if (origin.code !== 0 || !origin.stdout.trim()) {
+    throw new Error("Remote origin has no push URL");
+  }
+}
+
+export async function runShip(
   pi: ExtensionAPI,
   ctx: ExtensionCommandContext,
-  issueNumber?: string,
+  { issueNumber, override }: ShipArguments = {},
 ): Promise<void> {
   const git: Git = (args, timeout = GIT_TIMEOUT_MS) =>
     pi.exec("git", args, { cwd: ctx.cwd, timeout });
@@ -669,31 +838,18 @@ async function runShip(
     throw new Error("Current directory is not inside a Git working tree");
   }
 
-  const branchResult = await git([
-    "symbolic-ref",
-    "--quiet",
-    "--short",
-    "HEAD",
-  ]);
-  if (branchResult.code !== 0 || !branchResult.stdout.trim()) {
-    throw new Error("Refusing to ship from a detached HEAD");
-  }
-  const branch = branchResult.stdout.trim();
+  // Before anything reads a ref, because a half-finished rebase makes every
+  // answer below it meaningless.
+  await assertNoGitOperationInProgress(git);
 
-  const upstream = await git([
-    "rev-parse",
-    "--abbrev-ref",
-    "--symbolic-full-name",
-    "@{upstream}",
-  ]);
-  const hasUpstream = upstream.code === 0 && upstream.stdout.trim().length > 0;
-  if (!hasUpstream) {
-    const origin = await git(["remote", "get-url", "--push", "origin"]);
-    if (origin.code !== 0 || !origin.stdout.trim()) {
-      throw new Error(
-        `Branch ${branch} has no upstream and remote origin is unavailable`,
-      );
-    }
+  const branch = await currentBranch(git);
+  const destination = await resolveDestination(git, override);
+  ctx.ui.notify(describeDestination(destination), "info");
+
+  if (destination.kind === "trunk") {
+    await assertLandable(git, ctx, destination.ref);
+  } else {
+    await assertBranchPushable(git);
   }
 
   let stagedPaths = await listStagedPaths(git);
@@ -826,52 +982,93 @@ async function runShip(
     await rm(tempDirectory, { recursive: true, force: true });
   }
 
-  const commitHash = (
-    await requireSuccess(
-      git,
-      ["rev-parse", "--short", "HEAD"],
-      "Reading commit hash",
-    )
-  ).stdout.trim();
+  const readHead = async () =>
+    (
+      await requireSuccess(
+        git,
+        ["rev-parse", "--short", "HEAD"],
+        "Reading commit hash",
+      )
+    ).stdout.trim();
+  const commitHash = await readHead();
 
-  const push = hasUpstream
-    ? await git(["push"], PUSH_TIMEOUT_MS)
-    : await git(["push", "--set-upstream", "origin", branch], PUSH_TIMEOUT_MS);
-  if (push.code !== 0 || push.killed) {
-    throw new Error(
-      `Committed ${commitHash} (${message.split("\n")[0]}) but push failed.\n${displayOutput(push)}`,
+  const notify = (text: string) => ctx.ui.notify(text, "info");
+  // The fast-forward was settled before the checks, the model call, and the
+  // commit, none of which the remote waits through. pushWithRetry settles it
+  // again, and keeps settling it while sibling worktrees keep landing.
+  // Past this line a commit exists, so every failure has to say so. Losing the
+  // push is recoverable and obvious; not knowing whether the work was committed
+  // is what makes someone re-run and double-commit, or reset and lose it.
+  const committed = (detail: string) =>
+    new Error(
+      `Committed ${commitHash} (${message.split("\n")[0]}) but the push failed. The commit is safe in your local history; fix the cause and run /ship again.\n${detail}`,
     );
-  }
 
+  let push: GitCommandResult;
+  try {
+    push = await pushWithRetry(git, pushPlan(destination), notify, PUSH_TIMEOUT_MS);
+  } catch (error) {
+    throw committed(error instanceof Error ? error.message : String(error));
+  }
+  if (push.code !== 0 || push.killed) throw committed(displayOutput(push));
+
+  // Re-syncing may have rebased onto a moved ref, which gives the commit a new
+  // hash; report the one that is actually on the remote.
+  const pushedHash = await readHead();
+  const target =
+    destination.kind === "trunk"
+      ? `origin/${destination.ref}`
+      : destination.branch;
   ctx.ui.notify(
-    `Shipped ${commitHash} to ${branch}: ${message.split("\n")[0]}\nchecks: ${checkSummary}`,
+    `Shipped ${pushedHash} to ${target}: ${message.split("\n")[0]}\nchecks: ${checkSummary}`,
     "info",
   );
+
+  // Landing HEAD:main from a worktree moves origin/main and nothing local, so
+  // the trunk checkout is left behind by a commit the user just made.
+  if (destination.kind === "trunk" && branch !== destination.ref) {
+    await syncLocalTrunk(git, destination.ref, notify);
+  }
+}
+
+/**
+ * One lock for both command names, because they are one operation. Two locks
+ * would let `/to-main` start a second run on top of a `/ship` already mid-push.
+ */
+let shipping = false;
+
+export async function shipCommand(
+  pi: ExtensionAPI,
+  args: string,
+  ctx: ExtensionCommandContext,
+  command: string,
+  forced?: ShipOverride,
+): Promise<void> {
+  if (shipping) {
+    ctx.ui.notify("A ship operation is already running.", "warning");
+    return;
+  }
+
+  shipping = true;
+  try {
+    const parsed = parseShipArguments(args, command);
+    await ctx.waitForIdle();
+    await runShip(pi, ctx, {
+      issueNumber: parsed.issueNumber,
+      override: forced ?? parsed.override,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    ctx.ui.notify(`${command} failed: ${message}`, "error");
+  } finally {
+    shipping = false;
+  }
 }
 
 export default function shipExtension(pi: ExtensionAPI) {
-  let shipping = false;
-
   pi.registerCommand("ship", {
     description:
-      "Commit and push, closing the session's /implement issue; override with /ship 174",
-    handler: async (args, ctx) => {
-      if (shipping) {
-        ctx.ui.notify("A /ship operation is already running.", "warning");
-        return;
-      }
-
-      shipping = true;
-      try {
-        const issueNumber = parseIssueNumberArgument(args);
-        await ctx.waitForIdle();
-        await runShip(pi, ctx, issueNumber);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        ctx.ui.notify(`/ship failed: ${message}`, "error");
-      } finally {
-        shipping = false;
-      }
-    },
+      "Commit and push, picking the destination itself; force it with /ship main or /ship branch",
+    handler: (args, ctx) => shipCommand(pi, args, ctx, "/ship"),
   });
 }

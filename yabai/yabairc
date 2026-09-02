@@ -93,7 +93,7 @@ yabai -m rule --add app="^Seanime Denshi$" manage=off
 # yabai -m rule --add app="^Google Chrome$" manage=off
 yabai -m rule --add app="^Nuvio$" manage=off
 yabai -m rule --add app="^Zed$" manage=off
-# yabai -m rule --add app="^Code$" manage=off
+yabai -m rule --add app="^Code$" manage=off
 yabai -m rule --add app="^Zero$" manage=off
 yabai -m rule --add app="^Facebook$" manage=off
 yabai -m rule --add app="^Messenger$" manage=off

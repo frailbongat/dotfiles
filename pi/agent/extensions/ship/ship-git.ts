@@ -1,0 +1,328 @@
+/**
+ * Git plumbing with no pi runtime behind it.
+ *
+ * Everything here takes the command runner as an argument and declares its own
+ * structural result type, the same way `ship-repository.ts` does, so it can be
+ * unit-tested without loading the extension host.
+ */
+
+/** Beyond this, argv length and runtime stop being worth it. */
+const MAX_ERROR_OUTPUT = 2_000;
+const REBASE_TIMEOUT_MS = 120_000;
+/** One sync per rejection, and a rejection means someone else just landed. */
+const PUSH_ATTEMPTS = 3;
+
+export type GitCommandResult = {
+  stdout: string;
+  stderr?: string;
+  code: number;
+  killed?: boolean;
+};
+
+export type Git = (
+  args: string[],
+  timeout?: number,
+) => Promise<GitCommandResult>;
+
+export function displayOutput(result: GitCommandResult): string {
+  const output = [result.stderr?.trim(), result.stdout.trim()]
+    .filter(Boolean)
+    .join("\n");
+  if (!output) return "";
+  return output.length <= MAX_ERROR_OUTPUT
+    ? output
+    : `${output.slice(0, MAX_ERROR_OUTPUT)}\n…`;
+}
+
+export async function remoteRefExists(
+  git: Git,
+  ref: string,
+): Promise<boolean> {
+  const result = await git([
+    "rev-parse",
+    "--verify",
+    "--quiet",
+    `refs/remotes/origin/${ref}`,
+  ]);
+  return result.code === 0 && result.stdout.trim().length > 0;
+}
+
+/**
+ * A rebase can report success while leaving conflict markers on disk, because
+ * `--autostash` pops after the replay and the pop is not part of the rebase's
+ * exit code. Committing then would ship `<<<<<<<` into the trunk.
+ */
+async function assertNoUnmergedPaths(git: Git, context: string): Promise<void> {
+  const unmerged = await git(["ls-files", "--unmerged", "-z"]);
+  if (unmerged.code !== 0) return;
+  const paths = [
+    ...new Set(
+      unmerged.stdout
+        .split("\0")
+        .filter(Boolean)
+        .map((entry) => entry.split("\t")[1] ?? entry),
+    ),
+  ];
+  if (paths.length === 0) return;
+
+  throw new Error(
+    `${context} left conflicts in the working tree, so nothing was pushed. ` +
+      `Resolve them, then run the command again:\n${paths.join("\n")}\n` +
+      "Your pre-ship changes may be in `git stash list` as an autostash entry.",
+  );
+}
+
+/** Reasons a rebase never started, where `--abort` is also going to fail. */
+function rebaseHint(result: GitCommandResult): string {
+  const output = `${result.stderr ?? ""}\n${result.stdout}`;
+  if (/untracked working tree files would be overwritten/i.test(output)) {
+    return "\nUntracked files collide with the incoming commits. --autostash does not stash untracked files; move or delete them, then retry.";
+  }
+  if (/local changes .* would be overwritten|cannot rebase: you have unstaged/i.test(output)) {
+    return "\nThe working tree could not be stashed. Commit or stash it yourself, then retry.";
+  }
+  if (/could not apply|CONFLICT/i.test(output)) {
+    return "\nThis is a content conflict, which is a decision, not something ship should guess at.";
+  }
+  return "";
+}
+
+/**
+ * Replays HEAD onto a trunk that moved under it.
+ *
+ * The old failure told the user to go and do exactly this by hand, and there
+ * was never a second option: the push is a fast-forward or it is nothing. So it
+ * runs itself, and only a conflict is handed back, because a conflict is a
+ * decision and this command is not the place to make it.
+ *
+ * `--autostash` is what makes it work in both places it runs. Before the checks
+ * the tree is still full of the unstaged edits the ship is about to sweep in,
+ * and after the commit a formatter may have left more behind; a plain rebase
+ * refuses on either.
+ */
+async function rebaseOntoLandingRef(git: Git, landOn: string): Promise<void> {
+  const rebased = await git(
+    ["rebase", "--autostash", `origin/${landOn}`],
+    REBASE_TIMEOUT_MS,
+  );
+  if (rebased.code === 0 && !rebased.killed) {
+    await assertNoUnmergedPaths(git, `Rebasing onto origin/${landOn}`);
+    return;
+  }
+
+  // An abort that fails means the rebase never started, which is the usual case
+  // for a tree even --autostash will not touch. Say which it was.
+  const aborted = await git(["rebase", "--abort"], REBASE_TIMEOUT_MS);
+  const output = displayOutput(rebased);
+  throw new Error(
+    `origin/${landOn} moved and rebasing onto it failed, so nothing was pushed. Resolve it by hand:${
+      output ? `\n${output}` : ""
+    }${rebaseHint(rebased)}${
+      aborted.code === 0
+        ? "\nThe rebase was aborted, so the working tree is where it was."
+        : ""
+    }`,
+  );
+}
+
+/**
+ * Leaves HEAD a fast-forward of `origin/<landOn>`, rebasing onto it when the
+ * trunk moved since the last look.
+ *
+ * `notify` is called only when there is something to say, so the ordinary run
+ * where nothing moved stays silent. The pre-rebase commit goes into the message
+ * because a rebase is the one step here that rewrites local history, and that
+ * hash is how the reflog gets it back.
+ */
+export async function ensureFastForward(
+  git: Git,
+  landOn: string,
+  notify: (message: string) => void,
+): Promise<void> {
+  const fetched = await git(["fetch", "origin", landOn, "--quiet"]);
+  if (fetched.code !== 0) {
+    throw new Error(
+      `Fetching origin/${landOn} failed:\n${displayOutput(fetched)}`,
+    );
+  }
+
+  const isAncestor = async () =>
+    (await git(["merge-base", "--is-ancestor", `origin/${landOn}`, "HEAD"]))
+      .code === 0;
+  if (await isAncestor()) return;
+
+  const before = (await git(["rev-parse", "--short", "HEAD"])).stdout.trim();
+  const behind = (
+    await git(["log", "--oneline", `HEAD..origin/${landOn}`])
+  ).stdout.trim();
+  notify(
+    `origin/${landOn} moved; rebasing ${before || "HEAD"} onto it:${
+      behind ? `\n${behind}` : ""
+    }`,
+  );
+
+  await rebaseOntoLandingRef(git, landOn);
+  if (await isAncestor()) return;
+
+  throw new Error(
+    `Rebasing onto origin/${landOn} reported success but HEAD still does not descend from it, so nothing was pushed. Sort it out by hand:${
+      behind ? `\n${behind}` : ""
+    }`,
+  );
+}
+
+/**
+ * A rejection that another fetch-and-rebase would fix, as opposed to one that
+ * no amount of retrying will: a protected branch, a bad credential, a hook.
+ */
+export function isStaleRejection(result: GitCommandResult): boolean {
+  const output = `${result.stderr ?? ""}\n${result.stdout}`;
+  if (/\b(?:protected branch|permission denied|pre-receive hook declined|does not match any)\b/i.test(output)) {
+    return false;
+  }
+  return /non-fast-forward|fetch first|stale info|Updates were rejected|cannot lock ref|failed to lock/i.test(
+    output,
+  );
+}
+
+export interface PushPlan {
+  /** The `git push …` argv, minus the leading `push`. */
+  readonly args: readonly string[];
+  /** Remote branch HEAD must descend from before the push is legal. */
+  readonly syncRef: string;
+  readonly label: string;
+}
+
+/**
+ * Push, and survive losing a race.
+ *
+ * Between the pre-flight fast-forward and the push itself sit the formatters,
+ * a model call, and a commit. That is tens of seconds in which a sibling
+ * worktree can land on the same branch, and the reward for it is a rejected
+ * push and a run thrown away over something a second rebase fixes. So a stale
+ * rejection re-syncs and tries again; anything else is returned as it is.
+ */
+export async function pushWithRetry(
+  git: Git,
+  plan: PushPlan,
+  notify: (message: string) => void,
+  timeout: number,
+  attempts: number = PUSH_ATTEMPTS,
+): Promise<GitCommandResult> {
+  let last: GitCommandResult = {
+    stdout: "",
+    stderr: "no push was attempted",
+    code: 1,
+    killed: false,
+  };
+
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    // A brand-new branch has no remote counterpart to descend from, and asking
+    // to fetch one fails outright rather than reporting nothing to do.
+    if (await remoteRefExists(git, plan.syncRef)) {
+      await ensureFastForward(git, plan.syncRef, notify);
+    }
+
+    last = await git(["push", ...plan.args], timeout);
+    if (last.code === 0 && !last.killed) return last;
+    if (last.killed || !isStaleRejection(last) || attempt === attempts) {
+      return last;
+    }
+
+    notify(
+      `${plan.label} was rejected because origin/${plan.syncRef} moved again; re-syncing and retrying (${attempt}/${attempts - 1}).`,
+    );
+  }
+
+  return last;
+}
+
+/** The worktree that has `branch` checked out, if any worktree does. */
+async function worktreeHolding(
+  git: Git,
+  branch: string,
+): Promise<string | undefined> {
+  const list = await git(["worktree", "list", "--porcelain"]);
+  if (list.code !== 0) return undefined;
+
+  let path: string | undefined;
+  for (const line of list.stdout.split("\n")) {
+    if (line.startsWith("worktree ")) path = line.slice("worktree ".length).trim();
+    else if (line.trim() === `branch refs/heads/${branch}` && path) return path;
+  }
+  return undefined;
+}
+
+/**
+ * Moves the local trunk branch up to the trunk that was just pushed.
+ *
+ * Landing `HEAD:main` from a worktree updates `origin/main` and nothing else,
+ * so the local `main` sits at whatever it was when the worktree was cut. The
+ * next ship from the main checkout then opens with a rejected push, for a
+ * commit the user themselves landed an hour earlier.
+ *
+ * Three shapes, none of which can lose work: no checkout gets a guarded
+ * `update-ref`, a clean checkout gets `merge --ff-only`, and a dirty checkout
+ * gets told rather than touched.
+ */
+export async function syncLocalTrunk(
+  git: Git,
+  trunk: string,
+  notify: (message: string) => void,
+): Promise<void> {
+  const local = await git([
+    "rev-parse",
+    "--verify",
+    "--quiet",
+    `refs/heads/${trunk}`,
+  ]);
+  const before = local.stdout.trim();
+  if (local.code !== 0 || !before) return;
+
+  const remote = (
+    await git(["rev-parse", "--verify", "--quiet", `refs/remotes/origin/${trunk}`])
+  ).stdout.trim();
+  if (!remote || remote === before) return;
+
+  const fastForward = await git([
+    "merge-base",
+    "--is-ancestor",
+    before,
+    remote,
+  ]);
+  if (fastForward.code !== 0) {
+    notify(
+      `Local ${trunk} has diverged from origin/${trunk}, so it was left alone. Reconcile it when convenient.`,
+    );
+    return;
+  }
+
+  const path = await worktreeHolding(git, trunk);
+  if (!path) {
+    const updated = await git([
+      "update-ref",
+      `refs/heads/${trunk}`,
+      remote,
+      before,
+    ]);
+    if (updated.code === 0) {
+      notify(`Fast-forwarded local ${trunk} to ${remote.slice(0, 7)}.`);
+    }
+    return;
+  }
+
+  const status = await git(["-C", path, "status", "--porcelain"]);
+  if (status.code !== 0 || status.stdout.trim()) {
+    notify(
+      `${path} has ${trunk} checked out with uncommitted changes, so it was left alone. It is behind origin/${trunk}; pull it when convenient.`,
+    );
+    return;
+  }
+
+  const merged = await git(["-C", path, "merge", "--ff-only", `origin/${trunk}`]);
+  notify(
+    merged.code === 0
+      ? `Fast-forwarded ${trunk} to ${remote.slice(0, 7)} in ${path}.`
+      : `${path} is behind origin/${trunk} and could not be fast-forwarded; pull it by hand:\n${displayOutput(merged)}`,
+  );
+}

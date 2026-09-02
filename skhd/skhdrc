@@ -27,10 +27,11 @@ shift + cmd - l: yabai -m window --warp east
 # follow.sh: window is dragged to whatever space you're on, every time
 # jump.sh:   window keeps its space and you travel to it, but a first launch
 #            (no window anywhere) opens on the space you're already on
-alt - b: ~/.config/skhd/jump.sh '^Google Chrome$' 'Google Chrome'
-alt + shift - b: ~/.config/skhd/follow.sh '^Zen$' 'Zen Browser'
+alt - b: ~/.config/skhd/follow.sh '^Zen$' 'Zen Browser'
+alt + shift - b: ~/.config/skhd/jump.sh '^Google Chrome$' 'Google Chrome'
 # alt - b: ~/.config/skhd/jump.sh '^Vivaldi$' 'Vivaldi'
-alt - c: ~/.config/skhd/jump.sh '^Code$' 'Visual Studio Code'
+alt - c: ~/.config/skhd/jump.sh '^Superset$' 'Superset'
+# alt - c: ~/.config/skhd/jump.sh '^Code$' 'Visual Studio Code'
 # alt - c: ~/.config/skhd/jump.sh '^ChatGPT$' 'ChatGPT'
 alt - d: ~/.config/skhd/follow.sh '^Beeper$' 'Beeper Desktop'
 # alt - d: ~/.config/skhd/jump.sh '^Discord$' 'Discord'
