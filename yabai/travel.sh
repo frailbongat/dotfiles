@@ -31,6 +31,9 @@ LOG=/tmp/travel.log
 PENDING=/tmp/yabai-pending-launch
 CLAIM=/tmp/yabai-placing
 
+# Apps with a fixed home space. See pinned.sh.
+. "$HOME/.config/yabai/pinned.sh"
+
 # Apps that manage their own windows badly enough that yanking focus is worse
 # than doing nothing. Add to taste.
 IGNORE='^(Raycast|Alfred|Finder|loginwindow|Spotlight|Notification Centre|Notification Center|Control Centre|Control Center)$'
@@ -86,6 +89,18 @@ rm -f "$PENDING"
 # Something of this app is already in front of you. Leave focus alone.
 if [ "$(echo "$wins" | "$JQ" -r --argjson sp "$cur_space" '[ .[] | select(.space == $sp) ] | length')" != "0" ]; then
   log "already has a window on $cur_space"
+  exit 0
+fi
+
+# A pinned app cannot be anywhere but its own space, so there is nothing to be
+# unsure about and nothing to wait for. Skip the debounce below and go.
+pin=$(pinned_space "$(echo "$wins" | "$JQ" -r '.[0].app // empty')") ||
+  pin=$(pinned_space "${app:-}") || pin=""
+if [ -n "$pin" ]; then
+  wid=$(echo "$wins" | "$JQ" -r --argjson sp "$pin" '(map(select(.space == $sp)) + .) | .[0].id')
+  "$YABAI" -m space --focus "$pin" 2>/dev/null
+  "$YABAI" -m window --focus "$wid" 2>/dev/null
+  log "pinned, went straight to space $pin for window $wid"
   exit 0
 fi
 

@@ -26,8 +26,9 @@ shift + cmd - l: yabai -m window --warp east
 # app shortcuts
 # follow.sh: window is dragged to whatever space you're on, every time
 # jump.sh:   window keeps its space and you travel to it, but a first launch
-#            (no window anywhere) opens on the space you're already on
-alt - b: ~/.config/skhd/follow.sh '^Zen$' 'Zen Browser'
+#            (no window anywhere) opens on the space you're already on, unless
+#            the app is pinned in ~/.config/yabai/pinned.sh
+alt - b: ~/.config/skhd/jump.sh '^Zen$' 'Zen Browser'
 alt + shift - b: ~/.config/skhd/jump.sh '^Google Chrome$' 'Google Chrome'
 # alt - b: ~/.config/skhd/jump.sh '^Vivaldi$' 'Vivaldi'
 alt - c: ~/.config/skhd/jump.sh '^Superset$' 'Superset'

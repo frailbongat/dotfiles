@@ -6,6 +6,9 @@
 #   window exists -> focus it, macOS switches to that window's space
 #   no window     -> the new window is forced onto the space you're on
 #
+# Apps listed in ~/.config/yabai/pinned.sh skip the second rule: their first
+# window always opens on their own fixed space, and you travel to it.
+#
 # "No window" covers two cases that look the same to you but not to macOS:
 # the app is not running at all, and the app is running with every window
 # closed (white dot in the Dock). In the second case macOS remembers the last
@@ -27,28 +30,35 @@ LOG=/tmp/jump.log
 app_regex="$1"
 open_name="${2:-$1}"
 
+# Shared list of apps with a fixed home space, also read by yabai/place.sh.
+. "$HOME/.config/yabai/pinned.sh"
+
 log() { [ "${SUMMON_DEBUG:-0}" = "1" ] && echo "$(date '+%H:%M:%S') [$app_regex] $*" >>"$LOG"; }
 
 cur_space=$("$YABAI" -m query --spaces | "$JQ" -r '.[] | select(.["has-focus"]) | .index' | head -1)
 [ -z "$cur_space" ] && cur_space=$("$YABAI" -m query --spaces --space | "$JQ" -r '.index')
 
-# Prefer a window already on the current space, then any other window.
-wid=$("$YABAI" -m query --windows 2>/dev/null | "$JQ" -r --arg re "$app_regex" --argjson sp "$cur_space" '
+# Where a new window goes: the pinned space if the app has one, otherwise here.
+pin=$(pinned_space "$app_regex") || pin=""
+target_space="${pin:-$cur_space}"
+
+# Prefer a window already on the target space, then any other window.
+wid=$("$YABAI" -m query --windows 2>/dev/null | "$JQ" -r --arg re "$app_regex" --argjson sp "$target_space" '
   [ .[] | select(.app | test($re)) | select(.subrole == "AXStandardWindow") ]
   | (map(select(.space == $sp)) + .)
   | .[0].id // empty')
 
-log "current space=$cur_space wid=${wid:-none}"
+log "current space=$cur_space target=$target_space${pin:+ (pinned)} wid=${wid:-none}"
 
 if [ -z "$wid" ]; then
-  log "no window -> open -a '$open_name' onto space $cur_space"
+  log "no window -> open -a '$open_name' onto space $target_space"
 
   # A one-shot rule catches the next window this app spawns and puts it on our
   # space. `^` means follow, so focus comes back here if macOS moved us away.
   # It deletes itself once it fires.
   label="jump-$(echo "$app_regex" | tr -c '[:alnum:]' '-')"
   "$YABAI" -m rule --remove "$label" 2>/dev/null
-  "$YABAI" -m rule --add --one-shot label="$label" app="$app_regex" space="^$cur_space" 2>/dev/null
+  "$YABAI" -m rule --add --one-shot label="$label" app="$app_regex" space="^$target_space" 2>/dev/null
 
   open -a "$open_name"
 
@@ -70,13 +80,13 @@ if [ -z "$wid" ]; then
 
   for attempt in 1 2 3; do
     win_space=$("$YABAI" -m query --windows --window "$wid" 2>/dev/null | "$JQ" -r '.space')
-    [ "$win_space" = "$cur_space" ] && break
-    err=$("$YABAI" -m window "$wid" --space "$cur_space" 2>&1)
-    log "move $attempt: $win_space -> $cur_space ${err:+(err: $err)}"
+    [ "$win_space" = "$target_space" ] && break
+    err=$("$YABAI" -m window "$wid" --space "$target_space" 2>&1)
+    log "move $attempt: $win_space -> $target_space ${err:+(err: $err)}"
     sleep 0.1
   done
 
-  "$YABAI" -m space --focus "$cur_space" 2>/dev/null
+  "$YABAI" -m space --focus "$target_space" 2>/dev/null
   "$YABAI" -m window --focus "$wid" 2>/dev/null
   log "opened $wid on space $("$YABAI" -m query --windows --window "$wid" 2>/dev/null | "$JQ" -r '.space')"
   exit 0
@@ -92,5 +102,13 @@ if [ "$(echo "$state" | "$JQ" -r '.["is-hidden"]')" = "true" ]; then
   sleep 0.15
 fi
 
+# Switch the space ourselves. `window --focus` on its own does not reliably
+# carry you across spaces, and if we leave the trip to travel.sh it first pays
+# its debounce, which is the stutter you feel when the app lives elsewhere.
+win_space=$(echo "$state" | "$JQ" -r '.space')
+if [ -n "$win_space" ] && [ "$win_space" != "$cur_space" ]; then
+  "$YABAI" -m space --focus "$win_space" 2>/dev/null
+fi
+
 "$YABAI" -m window --focus "$wid" 2>/dev/null || open -a "$open_name"
-log "focused $wid on space $(echo "$state" | "$JQ" -r '.space')"
+log "focused $wid on space $win_space"

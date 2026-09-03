@@ -43,15 +43,21 @@ yabai -m config insert_feedback_color 0xff9dd274
 
 # apps spaces
 #
-# The old `space=` pins are gone. They fired on every window creation, so a
-# first launch always got yanked to a fixed space instead of opening where you
-# were standing. Placement now lives in ~/.config/skhd/jump.sh:
+# Most apps have no `space=` pin. A pin fires on every window creation, so a
+# first launch gets yanked to a fixed space instead of opening where you were
+# standing. For those apps placement lives in ~/.config/skhd/jump.sh:
 #
 #   window exists -> focus it, you travel to its space
 #   no window     -> open on the space you're already on
 #
-# Old pins, kept for reference: Code/Vivaldi/Things3 -> 1, Figma/Slack -> 2,
-# Spark/Discord/PS Remote Play -> 3, Spotify -> 4.
+# The apps below are the exception: they always live on one space, no matter
+# where you launch them from. The list is duplicated in
+# ~/.config/yabai/pinned.sh, which jump.sh and place.sh read so the launcher
+# and the window_created signal do not fight the rule. Edit both together.
+yabai -m rule --add label="pin_slack"   app="^Slack$"          space=2
+yabai -m rule --add label="pin_spark"   app="^Spark Desktop$"  space=2
+yabai -m rule --add label="pin_spotify" app="^Spotify$"        space=3
+yabai -m rule --add label="pin_discord" app="^Discord$"        space=3
 
 # disable apps
 yabai -m rule --add app="^(Calculator|Software Update|Dictionary|System Preferences|System Settings|zoom.us|Photo Booth|Archive Utility|App Store|Alfred|Activity Monitor)$" manage=off

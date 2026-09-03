@@ -32,6 +32,9 @@ JQ=/opt/homebrew/bin/jq
 LOG=/tmp/travel.log
 PENDING=/tmp/yabai-pending-launch
 
+# Apps with a fixed home space. See pinned.sh.
+. "$HOME/.config/yabai/pinned.sh"
+
 # How long after activating an app we still believe a new window belongs to
 # that launch. Long enough for a cold app, short enough that an unrelated
 # window minutes later is never grabbed.
@@ -67,14 +70,22 @@ EOF
 want_space=$("$YABAI" -m query --spaces 2>/dev/null | "$JQ" -r '.[] | select(.["has-focus"]) | .index' | head -1)
 
 # A fresh note from travel.sh beats the live query, because it was taken before
-# anything had a chance to move you.
+# anything had a chance to move you. It also tells us you asked for this window,
+# rather than the app opening one on its own, which decides whether we may drag
+# your focus along with it.
+asked_for_it=0
 if [ -f "$PENDING" ]; then
   read -r note_pid note_space note_ts <"$PENDING" 2>/dev/null || true
   if [ -n "${note_ts:-}" ] && [ "$note_pid" = "$win_pid" ] && [ $(( $(date +%s) - note_ts )) -le "$MAX_AGE" ]; then
     want_space=$note_space
+    asked_for_it=1
   fi
   rm -f "$PENDING"
 fi
+
+# A pinned app ignores where you are standing. Its space is its space.
+pin=$(pinned_space "$app") || pin=""
+[ -n "$pin" ] && want_space=$pin
 
 [ -z "$want_space" ] && exit 0
 
@@ -91,7 +102,7 @@ others=$("$YABAI" -m query --windows 2>/dev/null | "$JQ" -r --argjson pid "$win_
     | select(.subrole == "AXStandardWindow")
     | select(.["is-minimized"] == false)
   ] | length')
-if [ "$others" != "0" ]; then
+if [ -z "$pin" ] && [ "$others" != "0" ]; then
   log "born on $win_space but app has $others other window(s), leaving it"
   exit 0
 fi
@@ -106,7 +117,12 @@ for attempt in 1 2 3; do
   log "move attempt $attempt: still on $now"
 done
 
-"$YABAI" -m space --focus "$want_space" 2>/dev/null
-"$YABAI" -m window --focus "$wid" 2>/dev/null
+# A pinned app that opened by itself (a login item, a link handler, a tray app
+# waking up) is parked on its space quietly. Only follow it there if you were
+# the one who summoned it.
+if [ -z "$pin" ] || [ "$asked_for_it" = "1" ]; then
+  "$YABAI" -m space --focus "$want_space" 2>/dev/null
+  "$YABAI" -m window --focus "$wid" 2>/dev/null
+fi
 rm -f "$CLAIM"
-log "moved from $win_space to $want_space"
+log "moved from $win_space to $want_space${pin:+ (pinned)}"
