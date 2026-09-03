@@ -7,10 +7,13 @@ import type { ShipOverride } from "./ship-destination";
 export interface ShipArguments {
   readonly issueNumber?: string;
   readonly override?: ShipOverride;
+  /** Run the formatters and linters even if the agent already ran them clean. */
+  readonly recheck?: boolean;
 }
 
 const TRUNK_WORDS = new Set(["main", "trunk", "master"]);
 const BRANCH_WORDS = new Set(["branch", "here"]);
+const RECHECK_WORDS = new Set(["recheck", "check", "checks"]);
 
 /**
  * Tokens in any order, because there is no reason to remember an order for two
@@ -24,9 +27,10 @@ export function parseShipArguments(
   raw: string,
   command = "/ship",
 ): ShipArguments {
-  const usage = `Usage: ${command} [main|branch] [issue-number] (example: ${command} main 174)`;
+  const usage = `Usage: ${command} [main|branch] [recheck] [issue-number] (example: ${command} main 174)`;
   let issueNumber: string | undefined;
   let override: ShipOverride | undefined;
+  let recheck = false;
 
   for (const token of raw.trim().split(/\s+/).filter(Boolean)) {
     const word = token.toLowerCase();
@@ -37,6 +41,11 @@ export function parseShipArguments(
         throw new Error(usage);
       }
       issueNumber = word;
+      continue;
+    }
+
+    if (RECHECK_WORDS.has(word)) {
+      recheck = true;
       continue;
     }
 
@@ -52,7 +61,7 @@ export function parseShipArguments(
     override = parsed;
   }
 
-  return { issueNumber, override };
+  return { issueNumber, override, recheck };
 }
 
 /** Kept for callers that only ever passed an issue number. */

@@ -191,6 +191,11 @@ export interface PushPlan {
   /** Remote branch HEAD must descend from before the push is legal. */
   readonly syncRef: string;
   readonly label: string;
+  /**
+   * The caller already fetched and fast-forwarded onto `syncRef` in this run,
+   * so the first attempt can skip straight to the push.
+   */
+  readonly presynced?: boolean;
 }
 
 /**
@@ -201,6 +206,10 @@ export interface PushPlan {
  * worktree can land on the same branch, and the reward for it is a rejected
  * push and a run thrown away over something a second rebase fixes. So a stale
  * rejection re-syncs and tries again; anything else is returned as it is.
+ *
+ * The first attempt is optimistic when the caller has already synced: that race
+ * is rare, a fetch is the slowest thing in the whole command, and losing the
+ * race costs nothing more than the retry that was always going to handle it.
  */
 export async function pushWithRetry(
   git: Git,
@@ -219,7 +228,8 @@ export async function pushWithRetry(
   for (let attempt = 1; attempt <= attempts; attempt++) {
     // A brand-new branch has no remote counterpart to descend from, and asking
     // to fetch one fails outright rather than reporting nothing to do.
-    if (await remoteRefExists(git, plan.syncRef)) {
+    const optimistic = attempt === 1 && plan.presynced === true;
+    if (!optimistic && (await remoteRefExists(git, plan.syncRef))) {
       await ensureFastForward(git, plan.syncRef, notify);
     }
 
@@ -251,6 +261,18 @@ async function worktreeHolding(
     else if (line.trim() === `branch refs/heads/${branch}` && path) return path;
   }
   return undefined;
+}
+
+/**
+ * Renders a commit as `9fed34a Subject line` so a sync notice names the work
+ * that moved instead of an opaque hash. Falls back to the short hash alone when
+ * the subject cannot be read.
+ */
+async function describeCommit(git: Git, sha: string): Promise<string> {
+  const short = sha.slice(0, 7);
+  const subject = await git(["log", "-1", "--format=%s", sha]);
+  const line = subject.code === 0 ? subject.stdout.trim().split("\n")[0] : "";
+  return line ? `${short} ${line}` : short;
 }
 
 /**
@@ -306,7 +328,9 @@ export async function syncLocalTrunk(
       before,
     ]);
     if (updated.code === 0) {
-      notify(`Fast-forwarded local ${trunk} to ${remote.slice(0, 7)}.`);
+      notify(
+        `Fast-forwarded local ${trunk} to ${await describeCommit(git, remote)}.`,
+      );
     }
     return;
   }
@@ -322,7 +346,7 @@ export async function syncLocalTrunk(
   const merged = await git(["-C", path, "merge", "--ff-only", `origin/${trunk}`]);
   notify(
     merged.code === 0
-      ? `Fast-forwarded ${trunk} to ${remote.slice(0, 7)} in ${path}.`
+      ? `Fast-forwarded ${trunk} to ${await describeCommit(git, remote)} in ${path}.`
       : `${path} is behind origin/${trunk} and could not be fast-forwarded; pull it by hand:\n${displayOutput(merged)}`,
   );
 }
