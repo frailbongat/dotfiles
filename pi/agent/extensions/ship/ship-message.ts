@@ -64,6 +64,145 @@ export function lineLength(value: string): number {
   return [...value].length;
 }
 
+const EMOJI_PATTERN = /\p{Extended_Pictographic}\uFE0F?/gu;
+const SUBJECT_LIMIT = 72;
+const CONVENTIONAL_SUBJECT = new RegExp(
+  `^(?:${COMMIT_TYPES.join("|")})(?:\\([A-Za-z0-9._/-]+\\))?!?: .+`,
+);
+
+/**
+ * Greedy word wrap that keeps a bullet's marker on its first line and indents
+ * the rest under it. A single word longer than the limit is left alone; nothing
+ * can break it, and the caller drops the body rather than shipping a lie.
+ */
+function wrapLine(line: string, limit: number): string[] {
+  if (lineLength(line) <= limit) return [line];
+
+  const prefix = line.match(/^\s*-\s+/)?.[0] ?? "";
+  const indent = " ".repeat(lineLength(prefix));
+  const words = line.slice(prefix.length).split(/\s+/).filter(Boolean);
+  const wrapped: string[] = [];
+  let current = "";
+
+  for (const word of words) {
+    if (!current) {
+      current = `${prefix}${word}`;
+      continue;
+    }
+
+    const candidate = `${current} ${word}`;
+    if (lineLength(candidate) > limit) {
+      wrapped.push(current);
+      current = `${indent}${word}`;
+      continue;
+    }
+    current = candidate;
+  }
+
+  if (current) wrapped.push(current);
+  return wrapped.length > 0 ? wrapped : [line];
+}
+
+/**
+ * Fixes the violations that are typography rather than judgement.
+ *
+ * A model that writes `* ` for a bullet, forgets the blank line under the
+ * subject, ends the subject with a period, or trails a space has not
+ * misunderstood the change; it has mistyped the format. Asking it again costs a
+ * round trip and usually produces the same class of slip, so these are
+ * corrected here and the retry is saved for the things only a model can fix:
+ * the wrong type, a narrated body, a subject that says nothing.
+ */
+export function repairCommitMessage(raw: string): string {
+  const normalized = stripOuterCodeFence(raw)
+    .replace(/\r\n?/g, "\n")
+    .replace(EMOJI_PATTERN, "")
+    .trim();
+  if (!normalized) return normalized;
+
+  const all = normalized
+    .split("\n")
+    .map((line) => line.replace(/[ \t]{2,}/g, " ").replace(/\s+$/, ""));
+
+  /* Chatter before the message. A model that opens with "Here is the commit
+     message:" has still written a usable one on the next line, and promoting it
+     is cheaper and more reliable than asking again. Only ever a promotion: when
+     no line is conventional the text is left exactly as it came, so the model
+     sees its own words in the retry. */
+  const start = all.findIndex((line) => CONVENTIONAL_SUBJECT.test(line));
+  const lines = start > 0 ? all.slice(start) : all;
+
+  const subject = (lines[0] ?? "").replace(/\.+$/, "");
+  const body = lines.slice(1);
+
+  while (body.length > 0 && body[0] === "") body.shift();
+  while (body.length > 0 && body[body.length - 1] === "") body.pop();
+
+  const wrapped = body
+    .map((line) => line.replace(/^(\s*)\*\s+/, "$1- "))
+    .flatMap((line) => wrapLine(line, SUBJECT_LIMIT));
+
+  return wrapped.length > 0 ? `${subject}\n\n${wrapped.join("\n")}` : subject;
+}
+
+/**
+ * Drops whole words off the end of an over-long subject, keeping the
+ * Conventional Commit prefix and at least one word of summary.
+ *
+ * Lossy, so it is the last thing tried and the caller says out loud that it
+ * happened. A shorter subject the author can amend beats a ship that refuses to
+ * happen over thirteen characters.
+ */
+export function shortenSubject(
+  subject: string,
+  limit: number = SUBJECT_LIMIT,
+): string {
+  if (lineLength(subject) <= limit) return subject;
+
+  const prefix = subject.match(/^[^:]+: /)?.[0];
+  if (!prefix) return subject;
+
+  const words = subject.slice(prefix.length).split(/\s+/).filter(Boolean);
+  const kept: string[] = [];
+
+  for (const word of words) {
+    const candidate = `${prefix}${[...kept, word].join(" ")}`;
+    if (kept.length > 0 && lineLength(candidate) > limit) break;
+    kept.push(word);
+  }
+
+  return `${prefix}${kept.join(" ")}`.replace(/[.,;:!?]+$/, "");
+}
+
+/**
+ * A valid message from one the rules keep rejecting, paid for in words.
+ *
+ * Two things can still be wrong after a repair: the subject is too long on its
+ * own, and the body carries something no wrap can fit. The subject is shortened
+ * and the body is dropped, in that order, because the policy is already that
+ * most messages have no body at all. A body a breaking change or a revert had
+ * to write is never dropped; that failure is real and is reported.
+ */
+export function forceValidCommitMessage(
+  raw: string,
+  limit: number = SUBJECT_LIMIT,
+): ValidationResult {
+  const repaired = repairCommitMessage(raw);
+  const lines = repaired.split("\n");
+  const subject = shortenSubject(lines[0] ?? "", limit);
+  const body = lines.slice(2).join("\n");
+
+  const withBody = validateCommitMessage(body ? `${subject}\n\n${body}` : subject);
+  if (withBody.ok) return withBody;
+
+  const bodyIsMandatory =
+    /!:/.test(subject) ||
+    /^BREAKING CHANGE: /m.test(repaired) ||
+    /^revert\b/i.test(subject);
+
+  return bodyIsMandatory ? withBody : validateCommitMessage(subject);
+}
+
 export function validateCommitMessage(raw: string): ValidationResult {
   if (raw.includes("\0"))
     return { ok: false, error: "message contains a NUL byte" };
@@ -82,8 +221,8 @@ export function validateCommitMessage(raw: string): ValidationResult {
   if (!conventional.test(subject)) {
     return { ok: false, error: "subject is not a valid Conventional Commit" };
   }
-  if (lineLength(subject) > 72) {
-    return { ok: false, error: "subject exceeds 72 characters" };
+  if (lineLength(subject) > SUBJECT_LIMIT) {
+    return { ok: false, error: `subject exceeds ${SUBJECT_LIMIT} characters` };
   }
   if (lines.length > 1 && lines[1] !== "") {
     return {
@@ -93,8 +232,11 @@ export function validateCommitMessage(raw: string): ValidationResult {
   }
 
   for (const [index, line] of lines.entries()) {
-    if (lineLength(line) > 72) {
-      return { ok: false, error: `line ${index + 1} exceeds 72 characters` };
+    if (lineLength(line) > SUBJECT_LIMIT) {
+      return {
+        ok: false,
+        error: `line ${index + 1} exceeds ${SUBJECT_LIMIT} characters`,
+      };
     }
     if (/\s$/.test(line)) {
       return { ok: false, error: `line ${index + 1} has trailing whitespace` };
@@ -156,13 +298,19 @@ export function stripUnneededBody(message: string): string {
 
   const [verb, number] = reference.split(" ");
   const inline = `${subject} (${verb!.toLowerCase()} ${number})`;
-  return lineLength(inline) <= 72 ? inline : `${subject}\n\n${reference}`;
+  return lineLength(inline) <= SUBJECT_LIMIT
+    ? inline
+    : `${subject}\n\n${reference}`;
 }
 
 /**
  * The reference goes in the subject, because the subject is the whole message
  * in the ordinary case and a lone footer would force a body that says nothing.
- * A message that earned a body gets the footer form instead.
+ * A message that earned a body gets the footer form instead, and so does a
+ * subject the suffix would push past 72: the model wrote a legal subject, and
+ * refusing it over a suffix the caller chose to add is the caller's bug, not
+ * the model's. `stripUnneededBody` has made the same choice for as long as it
+ * has existed.
  */
 export function addClosingIssue(
   raw: string,
@@ -177,9 +325,11 @@ export function addClosingIssue(
     };
   }
 
+  const inline = `${validation.message} (closes #${issueNumber})`;
+  const fitsInline =
+    !validation.message.includes("\n") && lineLength(inline) <= SUBJECT_LIMIT;
+
   return validateCommitMessage(
-    validation.message.includes("\n")
-      ? `${validation.message}\n\nCloses #${issueNumber}`
-      : `${validation.message} (closes #${issueNumber})`,
+    fitsInline ? inline : `${validation.message}\n\nCloses #${issueNumber}`,
   );
 }

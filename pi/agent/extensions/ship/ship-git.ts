@@ -48,14 +48,13 @@ export async function remoteRefExists(
 }
 
 /**
- * A rebase can report success while leaving conflict markers on disk, because
- * `--autostash` pops after the replay and the pop is not part of the rebase's
- * exit code. Committing then would ship `<<<<<<<` into the trunk.
+ * Unmerged index entries, from any source: a rebase paused on a conflict, or
+ * an autostash pop that conflicted after the rebase itself succeeded.
  */
-async function assertNoUnmergedPaths(git: Git, context: string): Promise<void> {
+export async function listUnmergedPaths(git: Git): Promise<string[]> {
   const unmerged = await git(["ls-files", "--unmerged", "-z"]);
-  if (unmerged.code !== 0) return;
-  const paths = [
+  if (unmerged.code !== 0) return [];
+  return [
     ...new Set(
       unmerged.stdout
         .split("\0")
@@ -63,12 +62,25 @@ async function assertNoUnmergedPaths(git: Git, context: string): Promise<void> {
         .map((entry) => entry.split("\t")[1] ?? entry),
     ),
   ];
+}
+
+/**
+ * A rebase can report success while leaving conflicts in the index, because
+ * `--autostash` pops after the replay and the pop is not part of the rebase's
+ * exit code. Committing then would ship `<<<<<<<` into the trunk.
+ */
+async function assertNoUnmergedPaths(git: Git, landOn: string): Promise<void> {
+  const paths = await listUnmergedPaths(git);
   if (paths.length === 0) return;
 
-  throw new Error(
-    `${context} left conflicts in the working tree, so nothing was pushed. ` +
-      `Resolve them, then run the command again:\n${paths.join("\n")}\n` +
-      "Your pre-ship changes may be in `git stash list` as an autostash entry.",
+  throw new RebaseConflictError(
+    "index",
+    landOn,
+    paths,
+    `Rebasing onto origin/${landOn} succeeded, but reapplying the uncommitted ` +
+      "working-tree changes (the rebase autostash) left conflicts in the index, " +
+      "so nothing was pushed. The pre-rebase snapshot is still in `git stash list` " +
+      "as the autostash entry.",
   );
 }
 
@@ -81,10 +93,54 @@ function rebaseHint(result: GitCommandResult): string {
   if (/local changes .* would be overwritten|cannot rebase: you have unstaged/i.test(output)) {
     return "\nThe working tree could not be stashed. Commit or stash it yourself, then retry.";
   }
-  if (/could not apply|CONFLICT/i.test(output)) {
-    return "\nThis is a content conflict, which is a decision, not something ship should guess at.";
-  }
   return "";
+}
+
+/**
+ * A git conflict that stopped a ship, deliberately left in place.
+ *
+ * A conflict is a decision, and ship still refuses to make it. What changed is
+ * who gets handed the decision: the state used to be cleaned up and the user
+ * told to redo everything by hand, which threw away exactly what a resolver
+ * needs. Now the conflict stays on disk and this error carries enough for the
+ * extension to hand resolution to the agent, or for a human to finish it.
+ *
+ * Two kinds, because what "finish" means differs:
+ * - `rebase`: the rebase is paused mid-conflict. Resolve, stage, continue.
+ * - `index`: no operation is in progress, but the index holds unmerged
+ *   entries, the shape an autostash pop leaves behind. One side of each
+ *   conflict is uncommitted local work. Resolve and stage; nothing to
+ *   continue or abort.
+ *
+ * `afterResolution` is set by callers that know what has to happen once the
+ * conflict is resolved: nothing extra before a commit exists, a push after
+ * one does.
+ */
+export class RebaseConflictError extends Error {
+  readonly kind: "rebase" | "index";
+  readonly landOn: string;
+  readonly paths: readonly string[];
+  afterResolution?: string;
+
+  constructor(
+    kind: "rebase" | "index",
+    landOn: string,
+    paths: readonly string[],
+    message: string,
+  ) {
+    super(message);
+    this.name = "RebaseConflictError";
+    this.kind = kind;
+    this.landOn = landOn;
+    this.paths = paths;
+  }
+
+  /** What a human does about it, for the no-handoff error path. */
+  get manualAdvice(): string {
+    return this.kind === "rebase"
+      ? "Resolve the conflicts and `git rebase --continue`, or `git rebase --abort` to stand down."
+      : "Resolve the conflicts, then stage the resolved files with `git add` to clear the unmerged entries.";
+  }
 }
 
 /**
@@ -106,8 +162,23 @@ async function rebaseOntoLandingRef(git: Git, landOn: string): Promise<void> {
     REBASE_TIMEOUT_MS,
   );
   if (rebased.code === 0 && !rebased.killed) {
-    await assertNoUnmergedPaths(git, `Rebasing onto origin/${landOn}`);
+    await assertNoUnmergedPaths(git, landOn);
     return;
+  }
+
+  // A content conflict is a decision. The rebase stays in progress, because
+  // aborting it would throw away the state the resolver needs, and the typed
+  // error is how the extension knows to hand that decision to the agent.
+  const conflictOutput = `${rebased.stderr ?? ""}\n${rebased.stdout}`;
+  if (!rebased.killed && /could not apply|CONFLICT/i.test(conflictOutput)) {
+    const paths = await listUnmergedPaths(git);
+    throw new RebaseConflictError(
+      "rebase",
+      landOn,
+      paths,
+      `origin/${landOn} moved and rebasing onto it hit content conflicts, so nothing was pushed. ` +
+        "The rebase is paused mid-conflict.",
+    );
   }
 
   // An abort that fails means the rebase never started, which is the usual case

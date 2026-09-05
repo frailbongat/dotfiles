@@ -4,13 +4,17 @@ import {
   isStaleRejection,
   pushWithRetry,
   syncLocalTrunk,
+  RebaseConflictError,
 } from "./ship-git";
 import { resolveDestination, resolveTrunk } from "./ship-destination";
 import { parseShipArguments } from "./ship-arguments";
 import { resolveGitHubRepository } from "./ship-repository";
 import {
   addClosingIssue,
+  forceValidCommitMessage,
   pickFastModel,
+  repairCommitMessage,
+  shortenSubject,
   stripUnneededBody,
   validateCommitMessage,
 } from "./ship-message";
@@ -135,7 +139,7 @@ describe("landing fast-forward", () => {
     expect(notices[0]).toContain("431b65a");
   });
 
-  it("aborts and reports a conflict instead of pushing through it", async () => {
+  it("leaves a content conflict in progress and reports it as one", async () => {
     const { git, calls } = fakeGit({
       fetch: [result("")],
       "merge-base": [result("", 1)],
@@ -143,6 +147,81 @@ describe("landing fast-forward", () => {
       log: [result("431b65a perf(convex): resolve auth\n")],
       rebase: [
         result("CONFLICT (content): Merge conflict in docs/CONVENTIONS.md\n", 1),
+      ],
+      "ls-files": [
+        result(
+          [
+            "100644 ba313b1 1\tdocs/CONVENTIONS.md",
+            "100644 a53fd85 2\tdocs/CONVENTIONS.md",
+            "100644 76e85e0 3\tdocs/CONVENTIONS.md",
+            "",
+          ].join("\u0000"),
+        ),
+      ],
+    });
+
+    let thrown: unknown;
+    try {
+      await ensureFastForward(git, "main", () => {});
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(RebaseConflictError);
+    const conflict = thrown as RebaseConflictError;
+    expect(conflict.kind).toBe("rebase");
+    expect(conflict.landOn).toBe("main");
+    expect(conflict.paths).toEqual(["docs/CONVENTIONS.md"]);
+    expect(conflict.message).toContain("paused mid-conflict");
+    // The rebase is the state a resolver needs, so it must not be aborted.
+    expect(
+      calls.some((call) => call[0] === "rebase" && call[1] === "--abort"),
+    ).toBe(false);
+  });
+
+  it("reports a conflicted autostash pop as an index conflict", async () => {
+    const { git } = fakeGit({
+      fetch: [result("")],
+      "merge-base": [result("", 1)],
+      "rev-parse": [result("deadbee\n")],
+      log: [result("431b65a perf(convex): resolve auth\n")],
+      // The rebase itself succeeds; the conflict arrives with the stash pop.
+      rebase: [result("Successfully rebased and updated refs/heads/main.\n")],
+      "ls-files": [
+        result(
+          [
+            "100644 c70fd6f 1\tvite.config.js",
+            "100644 0043757 2\tvite.config.js",
+            "100644 c9399c9 3\tvite.config.js",
+            "",
+          ].join("\u0000"),
+        ),
+      ],
+    });
+
+    let thrown: unknown;
+    try {
+      await ensureFastForward(git, "main", () => {});
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(RebaseConflictError);
+    const conflict = thrown as RebaseConflictError;
+    expect(conflict.kind).toBe("index");
+    expect(conflict.paths).toEqual(["vite.config.js"]);
+    expect(conflict.message).toContain("autostash");
+    expect(conflict.manualAdvice).toContain("git add");
+  });
+
+  it("still aborts a rebase that failed without a content conflict", async () => {
+    const { git, calls } = fakeGit({
+      fetch: [result("")],
+      "merge-base": [result("", 1)],
+      "rev-parse": [result("deadbee\n")],
+      log: [result("431b65a perf(convex): resolve auth\n")],
+      rebase: [
+        result("", 1, "error: cannot rebase: You have unstaged changes.\n"),
         result(""),
       ],
     });
@@ -187,6 +266,7 @@ describe("ship arguments", () => {
       issueNumber: undefined,
       override: undefined,
       recheck: false,
+      verbose: false,
     });
   });
 
@@ -195,11 +275,13 @@ describe("ship arguments", () => {
       issueNumber: "174",
       override: "trunk",
       recheck: false,
+      verbose: false,
     });
     expect(parseShipArguments("174 branch")).toEqual({
       issueNumber: "174",
       override: "branch",
       recheck: false,
+      verbose: false,
     });
   });
 
@@ -208,7 +290,18 @@ describe("ship arguments", () => {
       issueNumber: undefined,
       override: "trunk",
       recheck: true,
+      verbose: false,
     });
+  });
+
+  it("takes verbose as a request for the step-by-step notices", () => {
+    expect(parseShipArguments("verbose")).toEqual({
+      issueNumber: undefined,
+      override: undefined,
+      recheck: false,
+      verbose: true,
+    });
+    expect(parseShipArguments("main -v").verbose).toBe(true);
   });
 
   it("rejects arguments it cannot explain", () => {
@@ -576,6 +669,131 @@ describe("commit message shape", () => {
       "42",
     );
     expect(added.ok && added.message.endsWith("\n\nCloses #42")).toBe(true);
+  });
+
+  it("moves the issue to a footer rather than pushing the subject past 72", () => {
+    // 63 characters, legal on its own; ` (closes #51)` would make it 76.
+    const subject = "refactor(experience): reach the calendar without a pointer x";
+    expect(validateCommitMessage(subject).ok).toBe(true);
+
+    const added = addClosingIssue(subject, "51");
+    expect(added).toEqual({ ok: true, message: `${subject}\n\nCloses #51` });
+  });
+});
+
+describe("commit message repair", () => {
+  it("fixes the slips that are typing rather than judgement", () => {
+    const raw = [
+      "fix(auth): stop refreshing an expired session.  ",
+      "* Guard the refresh call ",
+      "* Drop the retry",
+    ].join("\n");
+
+    expect(repairCommitMessage(raw)).toBe(
+      [
+        "fix(auth): stop refreshing an expired session",
+        "",
+        "- Guard the refresh call",
+        "- Drop the retry",
+      ].join("\n"),
+    );
+  });
+
+  it("strips emoji and the space they leave behind", () => {
+    expect(repairCommitMessage("feat(ui): 🎉 add the confetti burst")).toBe(
+      "feat(ui): add the confetti burst",
+    );
+  });
+
+  it("wraps an over-long body line under its own bullet", () => {
+    const raw = [
+      "fix(api): retry a throttled upload",
+      "",
+      "- The provider answers 429 for a whole minute after a burst, and a single attempt loses the file for good",
+    ].join("\n");
+    const repaired = repairCommitMessage(raw);
+
+    expect(validateCommitMessage(repaired).ok).toBe(true);
+    expect(repaired.split("\n").slice(2)).toEqual([
+      "- The provider answers 429 for a whole minute after a burst, and a",
+      "  single attempt loses the file for good",
+    ]);
+  });
+
+  it("leaves a message the rules already accept alone", () => {
+    const message = "feat(hero): add the availability badge";
+    expect(repairCommitMessage(message)).toBe(message);
+  });
+
+  it("promotes the real subject over a preamble the model wrote first", () => {
+    const raw = [
+      "Here is the commit message:",
+      "",
+      "feat(hero): add the availability badge",
+    ].join("\n");
+
+    expect(repairCommitMessage(raw)).toBe(
+      "feat(hero): add the availability badge",
+    );
+  });
+
+  it("keeps text no line can rescue, so the retry sees what the model wrote", () => {
+    const raw = "Updated the hero and the footer";
+    expect(repairCommitMessage(raw)).toBe(raw);
+  });
+});
+
+describe("commit message last resort", () => {
+  it("drops whole words off an over-long subject, keeping the prefix", () => {
+    const subject =
+      "refactor(experience): make every contribution calendar cell a focusable control";
+    const shortened = shortenSubject(subject);
+
+    expect(shortened).toBe(
+      "refactor(experience): make every contribution calendar cell a focusable",
+    );
+    expect(subject.startsWith(shortened)).toBe(true);
+    expect(validateCommitMessage(shortened).ok).toBe(true);
+  });
+
+  it("never cuts a subject that already fits", () => {
+    const subject = "fix(auth): expire idle sessions";
+    expect(shortenSubject(subject)).toBe(subject);
+  });
+
+  it("rescues a message two model attempts could not get right", () => {
+    const raw =
+      "refactor(experience): make every contribution calendar cell a focusable control";
+    expect(validateCommitMessage(raw).ok).toBe(false);
+
+    const forced = forceValidCommitMessage(raw);
+    expect(forced.ok).toBe(true);
+    expect(forced.ok && forced.message.startsWith("refactor(experience): ")).toBe(
+      true,
+    );
+  });
+
+  it("drops a body no wrap can fit rather than refusing the ship", () => {
+    const raw = [
+      "fix(build): pin the toolchain",
+      "",
+      `- see https://example.com/${"a".repeat(90)}`,
+    ].join("\n");
+
+    expect(forceValidCommitMessage(raw)).toEqual({
+      ok: true,
+      message: "fix(build): pin the toolchain",
+    });
+  });
+
+  it("still refuses when a breaking change's body is the broken part", () => {
+    const raw = [
+      "feat(api)!: drop /v1/orders",
+      "",
+      `BREAKING CHANGE: ${"x".repeat(90)}`,
+    ].join("\n");
+
+    expect(forceValidCommitMessage(raw).ok).toBe(false);
   });
 });
 

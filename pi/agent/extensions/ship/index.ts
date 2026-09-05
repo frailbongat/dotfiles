@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { uuidv7, type Api, type Model } from "@earendil-works/pi-ai";
 import { completeSimple } from "@earendil-works/pi-ai/compat";
 import type {
@@ -11,9 +11,10 @@ import type {
 import {
   COMMIT_TYPES,
   addClosingIssue,
+  forceValidCommitMessage,
   lineLength,
   pickFastModel,
-  stripOuterCodeFence,
+  repairCommitMessage,
   stripUnneededBody,
   validateCommitMessage,
 } from "./ship-message";
@@ -32,8 +33,10 @@ import {
 import {
   displayOutput,
   ensureFastForward,
+  listUnmergedPaths,
   pushWithRetry,
   syncLocalTrunk,
+  RebaseConflictError,
   type Git,
   type GitCommandResult,
   type PushPlan,
@@ -63,6 +66,9 @@ export {
 export { expandScripts, repoWideLabels } from "./ship-quality";
 export {
   addClosingIssue,
+  forceValidCommitMessage,
+  repairCommitMessage,
+  shortenSubject,
   stripUnneededBody,
   validateCommitMessage,
 } from "./ship-message";
@@ -91,6 +97,69 @@ function pinnedMessageModel(): string | undefined {
   }
 }
 const CHECK_TIMEOUT_MS = 90_000;
+
+/**
+ * Conflict handoff: when the pre-push rebase stops on a content conflict, ship
+ * hands resolution to the agent instead of aborting, as a visible message in
+ * the session that points at the user's merge-conflict skill. `config.json`
+ * turns it off with `"conflictHandoff": false` or repoints the skill with
+ * `"conflictSkillPath"`.
+ *
+ * The cap exists because a handoff that reliably fails would otherwise ship,
+ * conflict, hand off, and ship again forever.
+ */
+const MAX_CONFLICT_HANDOFFS = 3;
+
+function conflictHandoffConfig(): {
+  enabled: boolean;
+  skillPath: string;
+} {
+  let parsed: { conflictHandoff?: unknown; conflictSkillPath?: unknown } = {};
+  try {
+    parsed = JSON.parse(
+      readFileSync(new URL("./config.json", import.meta.url), "utf8"),
+    );
+  } catch {
+    // Missing config means defaults, same as pinnedMessageModel.
+  }
+  return {
+    enabled: parsed.conflictHandoff !== false,
+    skillPath:
+      typeof parsed.conflictSkillPath === "string" && parsed.conflictSkillPath.trim()
+        ? parsed.conflictSkillPath.trim()
+        : join(homedir(), ".agents", "skills", "resolving-merge-conflicts", "SKILL.md"),
+  };
+}
+
+/**
+ * The message that hands a conflict to the agent. It is a user message, so the
+ * resolution happens in the open: every hunk the agent picks is in the session
+ * for the user to inspect before anything reaches the remote.
+ */
+function conflictHandoffPrompt(
+  error: RebaseConflictError,
+  command: string,
+  skillPath: string,
+): string {
+  const paths = error.paths.length
+    ? `\n\nConflicted files:\n${error.paths.map((path) => `- ${path}`).join("\n")}`
+    : "";
+  const conduct =
+    error.kind === "rebase"
+      ? "Finish the rebase: stage each file as you resolve it and continue until no rebase is in progress. Never abort it."
+      : "Clear the unmerged index entries: resolve each file, then stage it with `git add`. One side of these conflicts is uncommitted local work, so preserve its intent deliberately. There is no rebase to continue or abort.";
+  const finish =
+    error.afterResolution ??
+    `When every conflict is resolved, ${command} will rerun automatically; do not commit or push the shipped changes yourself.`;
+
+  return (
+    `${command} stopped on a git conflict; nothing was pushed.\n\n` +
+    `${error.message}${paths}\n\n` +
+    `Load the resolving-merge-conflicts skill at ${skillPath} and follow it. ` +
+    `The ${command} I invoked authorizes the resolution. ${conduct}\n\n` +
+    finish
+  );
+}
 /** Beyond this, argv length and runtime stop being worth it; the hook path is better. */
 const MAX_CHECK_FILES = 200;
 
@@ -407,11 +476,20 @@ export function resolveMessageModel(
   return pickFastModel(available, active?.provider) ?? active;
 }
 
+/** How many times a model is asked before the rules are enforced by hand. */
+const MESSAGE_ATTEMPTS = 2;
+
 /**
  * Writes the message with `model`, retrying once on a message the rules reject.
  *
- * Every failure is thrown rather than swallowed, so the caller can decide
- * whether a second model is worth trying.
+ * The rejection is always repaired before it is retried, because most
+ * rejections are format slips rather than a model that cannot describe the
+ * change, and a round trip is a poor way to delete a trailing space.
+ *
+ * `salvage` decides what happens when the retry fails too. The last model in
+ * the chain shortens the subject and drops the body rather than let a ship that
+ * has already passed its checks die on its final step; an earlier model throws
+ * instead, so a better one still gets to write a message with all its words.
  */
 async function generateWithModel(
   ctx: ExtensionCommandContext,
@@ -423,6 +501,7 @@ async function generateWithModel(
   diffTruncated: boolean,
   recentSubjects: string,
   issueNumber?: string,
+  salvage = true,
 ): Promise<string> {
   const auth = await ctx.modelRegistry.getApiKeyAndHeaders(model);
   if (!auth.ok) throw new Error(`Model authentication failed: ${auth.error}`);
@@ -430,7 +509,7 @@ async function generateWithModel(
     throw new Error(`No API key is available for ${model.provider}`);
 
   let previousError: string | undefined;
-  for (let attempt = 0; attempt < 2; attempt++) {
+  for (let attempt = 0; attempt < MESSAGE_ATTEMPTS; attempt++) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), MODEL_TIMEOUT_MS);
 
@@ -497,12 +576,28 @@ async function generateWithModel(
         )
         .map((part) => part.text)
         .join("\n");
-      const terse = stripUnneededBody(stripOuterCodeFence(raw));
-      const validation = issueNumber
-        ? addClosingIssue(terse, issueNumber)
-        : validateCommitMessage(terse);
+      const finish = (candidate: string) =>
+        issueNumber
+          ? addClosingIssue(candidate, issueNumber)
+          : validateCommitMessage(candidate);
+
+      const terse = stripUnneededBody(repairCommitMessage(raw));
+      const validation = finish(terse);
       if (validation.ok) return validation.message;
       previousError = validation.error;
+
+      // Out of retries: take the words off rather than take the ship down.
+      if (salvage && attempt === MESSAGE_ATTEMPTS - 1) {
+        const forced = forceValidCommitMessage(terse);
+        const salvaged = forced.ok ? finish(forced.message) : forced;
+        if (salvaged.ok) {
+          ctx.ui.notify(
+            `Shortened the commit message to satisfy the rules (${validation.error}); amend it if the subject lost something.`,
+            "warning",
+          );
+          return salvaged.message;
+        }
+      }
     } finally {
       clearTimeout(timeout);
     }
@@ -538,7 +633,7 @@ async function generateCommitMessage(
       "No active model is available to generate a commit message",
     );
 
-  const generate = (chosen: Model<Api>) =>
+  const generate = (chosen: Model<Api>, salvage: boolean) =>
     generateWithModel(
       ctx,
       chosen,
@@ -549,12 +644,15 @@ async function generateCommitMessage(
       diffTruncated,
       recentSubjects,
       issueNumber,
+      salvage,
     );
 
+  const fallback = ctx.model;
+  const hasFallback = Boolean(fallback && fallback.id !== model.id);
+
   try {
-    return await generate(model);
+    return await generate(model, !hasFallback);
   } catch (error) {
-    const fallback = ctx.model;
     if (!fallback || fallback.id === model.id) throw error;
 
     ctx.ui.notify(
@@ -563,7 +661,7 @@ async function generateCommitMessage(
       }`,
       "warning",
     );
-    return generate(fallback);
+    return generate(fallback, true);
   }
 }
 
@@ -664,6 +762,7 @@ async function runStagedChecks(
   repoRoot: string,
   ledger: CheckLedger,
   recheck: boolean,
+  progress: (text: string) => void,
 ): Promise<string> {
   const gitDirResult = await git(["rev-parse", "--absolute-git-dir"]);
   const gitDir =
@@ -709,7 +808,7 @@ async function runStagedChecks(
     let fixed = 0;
 
     if (fixable.length > 0) {
-      ctx.ui.notify(`Running ${spec.label} on ${fixable.length} file(s)…`, "info");
+      progress(`Running ${spec.label} on ${fixable.length} file(s)…`);
       const written = await pi.exec(binary, [...cached, ...spec.writeArgs!, ...fixable], {
         cwd: repoRoot,
         timeout: CHECK_TIMEOUT_MS,
@@ -733,7 +832,7 @@ async function runStagedChecks(
     }
 
     if (checkOnly.length > 0) {
-      ctx.ui.notify(`Checking ${spec.label} on ${checkOnly.length} file(s)…`, "info");
+      progress(`Checking ${spec.label} on ${checkOnly.length} file(s)…`);
       const result = await pi.exec(binary, [...cached, ...spec.args, ...checkOnly], {
         cwd: repoRoot,
         timeout: CHECK_TIMEOUT_MS,
@@ -791,6 +890,31 @@ async function assertNoGitOperationInProgress(git: Git): Promise<void> {
       `Refusing to land while a git operation is in progress: ${running.join(", ")}`,
     );
   }
+}
+
+/**
+ * Unmerged index entries with no operation in progress, the state a conflicted
+ * autostash pop leaves behind. It slips past the marker check because git
+ * considers the rebase finished, and everything downstream then trips over the
+ * conflict stages: `write-tree` refuses outright, and a `git add -A` would
+ * quietly stage conflict markers as content.
+ *
+ * Thrown as a conflict rather than a failure so the handoff machinery treats
+ * it exactly like a paused rebase: the agent resolves it, ship reruns.
+ */
+async function assertNoConflictedIndex(git: Git): Promise<void> {
+  const paths = await listUnmergedPaths(git);
+  if (paths.length === 0) return;
+
+  throw new RebaseConflictError(
+    "index",
+    "",
+    paths,
+    "The index carries unmerged entries from an earlier conflict, most likely " +
+      "a rebase autostash that conflicted when it was reapplied, so nothing was " +
+      "staged or pushed. The pre-rebase snapshot may still be in `git stash list` " +
+      "as an autostash entry.",
+  );
 }
 
 /**
@@ -865,9 +989,16 @@ async function assertBranchPushable(git: Git): Promise<void> {
 export async function runShip(
   pi: ExtensionAPI,
   ctx: ExtensionCommandContext,
-  { issueNumber, override, recheck }: ShipArguments = {},
+  { issueNumber, override, recheck, verbose }: ShipArguments = {},
   ledger: CheckLedger = createCheckLedger(),
 ): Promise<void> {
+  // Every step announcing itself buries the one line that matters, the commit
+  // message, in a chat transcript. The steps are only news when a run goes
+  // wrong, and a run that goes wrong throws with its own detail, so they are
+  // silent unless `/ship verbose` asks for them.
+  const progress = (text: string) => {
+    if (verbose) ctx.ui.notify(text, "info");
+  };
   const git: Git = (args, timeout = GIT_TIMEOUT_MS) =>
     pi.exec("git", args, { cwd: ctx.cwd, timeout });
   const github: Git = (args, timeout = GIT_TIMEOUT_MS) =>
@@ -881,10 +1012,11 @@ export async function runShip(
   // Before anything reads a ref, because a half-finished rebase makes every
   // answer below it meaningless.
   await assertNoGitOperationInProgress(git);
+  await assertNoConflictedIndex(git);
 
   const branch = await currentBranch(git);
   const destination = await resolveDestination(git, override);
-  ctx.ui.notify(describeDestination(destination), "info");
+  progress(describeDestination(destination));
 
   if (destination.kind === "trunk") {
     await assertLandable(git, ctx, destination.ref);
@@ -917,9 +1049,8 @@ export async function runShip(
     // Nothing staged is the normal path: the documented workflow is to review an
     // unstaged tree and then ship it, so stage everything and say what was swept
     // in. To ship a subset, stage it yourself first and /ship uses only that.
-    ctx.ui.notify(
+    progress(
       `Staging ${candidatePaths.length} changed file(s) with no staged changes present.`,
-      "info",
     );
 
     await requireSuccess(git, ["add", "-A"], "Staging current changes");
@@ -944,6 +1075,7 @@ export async function runShip(
     topLevel.stdout.trim(),
     ledger,
     recheck ?? false,
+    progress,
   );
 
   const stagedTree = (
@@ -957,10 +1089,7 @@ export async function runShip(
     const reference = findIssueReferenceInSession(ctx, repository);
     closingIssueNumber = reference?.issueNumber;
     if (closingIssueNumber) {
-      ctx.ui.notify(
-        `Using issue #${closingIssueNumber} from the current session.`,
-        "info",
-      );
+      progress(`Using issue #${closingIssueNumber} from the current session.`);
     }
   }
 
@@ -985,10 +1114,7 @@ export async function runShip(
     ]);
   const boundedDiff = truncateUtf8(diffResult.stdout, MAX_DIFF_BYTES);
 
-  ctx.ui.notify(
-    `Generating a commit message for ${stagedPaths.length} staged file(s)…`,
-    "info",
-  );
+  progress(`Generating a commit message for ${stagedPaths.length} staged file(s)…`);
   const message = await generateCommitMessage(
     ctx,
     stagedPaths,
@@ -1048,10 +1174,22 @@ export async function runShip(
       `Committed ${commitHash} (${message.split("\n")[0]}) but the push failed. The commit is safe in your local history; fix the cause and run /ship again.\n${detail}`,
     );
 
+  const plan = pushPlan(destination);
   let push: GitCommandResult;
   try {
-    push = await pushWithRetry(git, pushPlan(destination), notify, PUSH_TIMEOUT_MS);
+    push = await pushWithRetry(git, plan, notify, PUSH_TIMEOUT_MS);
   } catch (error) {
+    // A conflict here is the same handoff as before the commit, with one
+    // difference the agent has to be told about: the commit already exists and
+    // rides the rebase, so rerunning /ship afterwards would find nothing staged
+    // and refuse. The push is the only step left.
+    if (error instanceof RebaseConflictError) {
+      error.afterResolution =
+        `Commit ${commitHash} (${message.split("\n")[0]}) was already created and rides the rebase. ` +
+        `When the rebase has fully completed, push it with \`${["git", "push", ...plan.args].join(" ")}\`. ` +
+        `Do not create another commit.`;
+      throw error;
+    }
     throw committed(error instanceof Error ? error.message : String(error));
   }
   if (push.code !== 0 || push.killed) throw committed(displayOutput(push));
@@ -1083,11 +1221,16 @@ export async function runShip(
     (line) => !line.includes(pushedHash.slice(0, 7)),
   );
 
+  // The commit message is the whole report: it names what landed, and it only
+  // runs past one line when the commit itself has a body. The hash, the target
+  // and the check list are bookkeeping nobody reads on a run that worked, so
+  // they wait for `/ship verbose`. Housekeeping notices still print, because
+  // those are the ones that ask the user to do something.
   ctx.ui.notify(
     [
-      `Shipped ${pushedHash} to ${target}`,
+      ...(verbose ? [`Shipped ${pushedHash} to ${target}`] : []),
       message,
-      `checks: ${checkSummary}`,
+      ...(verbose ? [`checks: ${checkSummary}`] : []),
       ...notable,
     ].join("\n"),
     "info",
@@ -1100,6 +1243,16 @@ export async function runShip(
  */
 let shipping = false;
 
+/**
+ * The ship to rerun once the agent has resolved a handed-off conflict, plus
+ * how many handoffs this run has already burned. Module-level so a conflict
+ * raised through `/to-main` resumes through the same machinery.
+ */
+let resumeAfterConflict:
+  | { args: string; command: string; forced?: ShipOverride; ledger?: CheckLedger }
+  | undefined;
+let conflictHandoffs = 0;
+
 export async function shipCommand(
   pi: ExtensionAPI,
   args: string,
@@ -1107,6 +1260,7 @@ export async function shipCommand(
   command: string,
   forced?: ShipOverride,
   ledger?: CheckLedger,
+  resumed = false,
 ): Promise<void> {
   if (shipping) {
     ctx.ui.notify("A ship operation is already running.", "warning");
@@ -1114,9 +1268,13 @@ export async function shipCommand(
   }
 
   shipping = true;
+  resumeAfterConflict = undefined;
+  if (!resumed) conflictHandoffs = 0;
   try {
     const parsed = parseShipArguments(args, command);
-    await ctx.waitForIdle();
+    // Absent on the ExtensionContext the resume path arrives with, and
+    // unneeded there: agent_settled fires only once the agent is idle.
+    await ctx.waitForIdle?.();
     await runShip(
       pi,
       ctx,
@@ -1128,8 +1286,32 @@ export async function shipCommand(
       ledger,
     );
   } catch (error) {
+    const handoff = conflictHandoffConfig();
+    if (
+      error instanceof RebaseConflictError &&
+      handoff.enabled &&
+      conflictHandoffs < MAX_CONFLICT_HANDOFFS
+    ) {
+      conflictHandoffs += 1;
+      // Only a pre-commit conflict reruns the whole command; after a commit
+      // exists the prompt already tells the agent the push is the only step.
+      if (!error.afterResolution) {
+        resumeAfterConflict = { args, command, forced, ledger };
+      }
+      ctx.ui.notify(
+        `${command}: rebase conflict; handing resolution to the agent.\n${error.message}`,
+        "warning",
+      );
+      pi.sendUserMessage(conflictHandoffPrompt(error, command, handoff.skillPath));
+      return;
+    }
+
     const message = error instanceof Error ? error.message : String(error);
-    ctx.ui.notify(`${command} failed: ${message}`, "error");
+    const advice =
+      error instanceof RebaseConflictError
+        ? `${error.paths.length ? `\n${error.paths.join("\n")}` : ""}\n${error.manualAdvice}`
+        : "";
+    ctx.ui.notify(`${command} failed: ${message}${advice}`, "error");
   } finally {
     shipping = false;
   }
@@ -1137,6 +1319,47 @@ export async function shipCommand(
 
 export default function shipExtension(pi: ExtensionAPI) {
   const ledger = createCheckLedger();
+
+  // The other half of the conflict handoff: when the agent finishes resolving
+  // and goes idle, the interrupted ship reruns on its own. The rerun rebases
+  // onto the now-included trunk, ships the reviewed changes, and burns one
+  // handoff from the cap if it conflicts again.
+  pi.on("agent_settled", async (_event, ctx) => {
+    if (!resumeAfterConflict || shipping) return;
+    const pending = resumeAfterConflict;
+    resumeAfterConflict = undefined;
+
+    const gitDir = await pi.exec(
+      "git",
+      ["rev-parse", "--absolute-git-dir"],
+      { cwd: ctx.cwd, timeout: GIT_TIMEOUT_MS },
+    );
+    if (gitDir.code !== 0) return;
+    const unfinished = GIT_OPERATION_MARKERS.some((marker) =>
+      existsSync(join(gitDir.stdout.trim(), marker)),
+    );
+    if (unfinished) {
+      ctx.ui.notify(
+        `The rebase is still in progress, so ${pending.command} was not rerun. Finish or abort it, then run ${pending.command} yourself.`,
+        "warning",
+      );
+      return;
+    }
+
+    ctx.ui.notify(`Conflict resolved; rerunning ${pending.command}…`, "info");
+    // agent_settled hands an ExtensionContext, which carries everything runShip
+    // reads; the one command-only member, waitForIdle, is called optionally and
+    // is moot here because settled means idle.
+    await shipCommand(
+      pi,
+      pending.args,
+      ctx as ExtensionCommandContext,
+      pending.command,
+      pending.forced,
+      pending.ledger,
+      true,
+    );
+  });
 
   // Every repo-wide lint or format the agent runs in this session is one /ship
   // does not have to run again. Only clean exits are remembered, and the file
@@ -1153,7 +1376,7 @@ export default function shipExtension(pi: ExtensionAPI) {
 
   pi.registerCommand("ship", {
     description:
-      "Commit and push, picking the destination itself; force it with /ship main or /ship branch",
+      "Commit and push, picking the destination itself; force it with /ship main or /ship branch, show every step with /ship verbose",
     handler: (args, ctx) => shipCommand(pi, args, ctx, "/ship", undefined, ledger),
   });
 }

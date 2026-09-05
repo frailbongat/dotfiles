@@ -1,5 +1,5 @@
 {
-  "lastChangelogVersion": "0.84.4",
+  "lastChangelogVersion": "0.85.0",
   "theme": "github-dark-default",
   "defaultProvider": "cliproxyapi",
   "defaultModel": "claude-opus-5",
@@ -14,7 +14,9 @@
     "npm:pi-mcp-adapter",
     {
       "source": "npm:@router-for-me/pi-cliproxyapi-provider",
-      "extensions": ["!tps.ts"]
+      "extensions": [
+        "!tps.ts"
+      ]
     }
   ]
 }

@@ -9,11 +9,14 @@ export interface ShipArguments {
   readonly override?: ShipOverride;
   /** Run the formatters and linters even if the agent already ran them clean. */
   readonly recheck?: boolean;
+  /** Print the step-by-step progress notices instead of just the commit. */
+  readonly verbose?: boolean;
 }
 
 const TRUNK_WORDS = new Set(["main", "trunk", "master"]);
 const BRANCH_WORDS = new Set(["branch", "here"]);
 const RECHECK_WORDS = new Set(["recheck", "check", "checks"]);
+const VERBOSE_WORDS = new Set(["verbose", "-v", "--verbose", "loud"]);
 
 /**
  * Tokens in any order, because there is no reason to remember an order for two
@@ -27,10 +30,11 @@ export function parseShipArguments(
   raw: string,
   command = "/ship",
 ): ShipArguments {
-  const usage = `Usage: ${command} [main|branch] [recheck] [issue-number] (example: ${command} main 174)`;
+  const usage = `Usage: ${command} [main|branch] [recheck] [verbose] [issue-number] (example: ${command} main 174)`;
   let issueNumber: string | undefined;
   let override: ShipOverride | undefined;
   let recheck = false;
+  let verbose = false;
 
   for (const token of raw.trim().split(/\s+/).filter(Boolean)) {
     const word = token.toLowerCase();
@@ -49,6 +53,11 @@ export function parseShipArguments(
       continue;
     }
 
+    if (VERBOSE_WORDS.has(word)) {
+      verbose = true;
+      continue;
+    }
+
     const parsed = TRUNK_WORDS.has(word)
       ? "trunk"
       : BRANCH_WORDS.has(word)
@@ -61,7 +70,7 @@ export function parseShipArguments(
     override = parsed;
   }
 
-  return { issueNumber, override, recheck };
+  return { issueNumber, override, recheck, verbose };
 }
 
 /** Kept for callers that only ever passed an issue number. */

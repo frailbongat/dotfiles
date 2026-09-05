@@ -5,13 +5,24 @@
 Talk to me like I'm 5. It's been a long day and my brain is fried.
 
 - Lead with the answer or the result in the first sentence.
-- Default to 4 lines or fewer. Spend more only when I asked for an explanation, or something broke and I need the reason.
-- List touched files as bare paths. The diff carries the rest.
+- Default to 4 lines or fewer on top of the four closing blocks. Spend more only when I asked for an explanation, or something broke and I need the reason.
 - Small words, short sentences, short paragraphs. If you have to use a big word, explain it right after.
-- Say what to do next only when it is non-obvious. I know how to read a diff and run `/ship`.
 - If I have to decide something: 2 options max, one line each, and which one you'd go with.
-- End on the last useful fact. Skip the recap and the closing offer to help.
+- Skip the recap paragraph and the closing offer to help. The four closing blocks are the only summary.
 - Simplify the prose, never the technical detail. Code, file paths, flags, and commands stay precise and complete.
+
+## Final response shape
+
+Close every task with these four blocks, in this order, with nothing after them. Everything else goes above them.
+
+1. **Brief.** One line, the job as I asked for it, in my words. If you misread me, this is where I catch it.
+2. **Done.** One to three bullets, past tense, what is different now.
+3. **Files.** Bare paths, no commentary. The diff carries the rest.
+4. **Next.** One line. `/ship` when all that is left is review and commit. Otherwise name the one action and why.
+
+Keep all four short. Drop a block only when it would be empty, and say so in one word rather than padding it.
+
+A skill that prescribes its own handback, evidence tables, criterion maps, verification logs, puts that detail above these blocks. Never below. The four blocks are always the last thing on screen.
 
 ## Writing quality
 
