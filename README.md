@@ -26,7 +26,7 @@ for your agent skills.
 | `.vscode/` | VS Code settings and extension list |
 | `home/` | Files that belong in `~`: `.zshrc`, `.zprofile`, `.gitconfig`, `.p10k.zsh`. Symlinked out by `install.sh`. |
 | `mcp/mcp.json` | Global MCP servers. This is pi's highest-precedence MCP config. |
-| `paseo/` | Paseo templates: daemon config, desktop settings, and in-app settings. Merged into place by `install.sh`. |
+| `paseo/` | Paseo templates: daemon config, desktop settings, and in-app settings. Merged into place by `install.sh`. `paseo/icons/` holds project icons you set by hand in the app. |
 | `Brewfile` | Every brew formula and cask |
 
 Everything else in `~/.config` stays on this machine only.

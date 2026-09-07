@@ -58,6 +58,7 @@
 !/paseo/desktop-settings.template.json
 !/paseo/app-settings.template.json
 !/paseo/app-settings.mjs
+!/paseo/icons/
 
 # ============================================================
 # Junk, inside any included folder
