@@ -92,12 +92,108 @@ if [ -d "$CONFIG/sketchybar/helpers" ]; then
   make -C "$CONFIG/sketchybar/helpers"
 fi
 
+# 9. Paseo: portable config + plugins.
+#    ~/.paseo holds per-device identity (daemon-keypair.json, server-id,
+#    cli-client-id, push-tokens.json). Those are never synced. Only the
+#    portable settings live in this repo, as paseo/config.template.json.
+#
+#    The `plugins` block is deliberately NOT in the template. Paseo records
+#    every plugin as an absolute path, even ones installed from Git, where the
+#    path is a managed checkout under ~/.paseo/plugins. That path is
+#    meaningless on another machine, so each device writes its own by running
+#    `paseo plugin install` below.
+PASEO_BIN="/Applications/Paseo.app/Contents/Resources/bin/paseo"
+PASEO_HOME="$HOME/.paseo"
+PASEO_CONFIG="$PASEO_HOME/config.json"
+PASEO_TEMPLATE="$CONFIG/paseo/config.template.json"
+PASEO_APP_SUPPORT="$HOME/Library/Application Support/Paseo"
+PASEO_DESKTOP_SETTINGS="$PASEO_APP_SUPPORT/desktop-settings.json"
+PASEO_DESKTOP_TEMPLATE="$CONFIG/paseo/desktop-settings.template.json"
+
+PASEO_PLUGINS=(
+  "https://github.com/frailbongat/paseo-composer-pills.git"
+  "https://github.com/frailbongat/paseo-ticket-board.git"
+)
+
+if [ ! -x "$PASEO_BIN" ]; then
+  info "Paseo not installed, skipping. Install Paseo.app, then re-run this script."
+else
+  info "Applying Paseo config"
+  mkdir -p "$PASEO_HOME"
+  if [ -f "$PASEO_CONFIG" ]; then
+    # Template wins on the keys it defines. Everything else in the existing
+    # config survives, including the device's own `plugins` block.
+    tmp="$(mktemp)"
+    jq -s '.[0] * .[1]' "$PASEO_CONFIG" "$PASEO_TEMPLATE" > "$tmp"
+    mv "$tmp" "$PASEO_CONFIG"
+    echo "    merged template into existing $PASEO_CONFIG"
+  else
+    cp "$PASEO_TEMPLATE" "$PASEO_CONFIG"
+    echo "    seeded $PASEO_CONFIG"
+  fi
+
+  # Plugin install needs a running daemon. On a cold machine there isn't one,
+  # so treat failure as "do it later" rather than aborting the whole script.
+  info "Installing Paseo plugins"
+  for repo in "${PASEO_PLUGINS[@]}"; do
+    name="$(basename "$repo" .git)"
+    if "$PASEO_BIN" plugin ls 2>/dev/null | grep -q "^$name "; then
+      echo "    $name already installed"
+    elif "$PASEO_BIN" plugin install "$repo" >/dev/null 2>&1; then
+      echo "    $name installed"
+    else
+      echo "    $name FAILED. Start Paseo, then: $PASEO_BIN plugin install $repo"
+    fi
+  done
+fi
+
+# 10. Paseo app settings, which live in two different places.
+#
+#     desktop-settings.json is the Electron shell's own file, holding the
+#     release channel and how it manages the daemon. It sits in the Electron
+#     profile next to window-state.json, cookies, and caches. Its `migrations`
+#     block is per-device bookkeeping, so the template leaves it out.
+#
+#     Everything you set inside the app -- theme, fonts, font sizes, diff
+#     layout, default agent provider -- is not a file at all. Paseo keeps it in
+#     the renderer's localStorage, which on disk is a Chromium LevelDB. Only
+#     paseo/app-settings.mjs can read and write that, so it does.
+#
+#     Both need Paseo closed. It holds a lock on the LevelDB while it runs and
+#     rewrites desktop-settings.json on quit, which would undo the merge.
+#     pgrep does not see the Electron main process by name on macOS, hence the
+#     exact match on its executable path in the full process list.
+info "Applying Paseo app settings"
+if ps -Axo comm= | grep -qx '/Applications/Paseo.app/Contents/MacOS/Paseo'; then
+  echo "    Paseo is running. Quit it and re-run this script to apply."
+else
+  mkdir -p "$PASEO_APP_SUPPORT"
+  if [ -f "$PASEO_DESKTOP_SETTINGS" ]; then
+    tmp="$(mktemp)"
+    jq -s '.[0] * .[1]' "$PASEO_DESKTOP_SETTINGS" "$PASEO_DESKTOP_TEMPLATE" > "$tmp"
+    mv "$tmp" "$PASEO_DESKTOP_SETTINGS"
+    echo "    merged template into existing $PASEO_DESKTOP_SETTINGS"
+  else
+    cp "$PASEO_DESKTOP_TEMPLATE" "$PASEO_DESKTOP_SETTINGS"
+    echo "    seeded $PASEO_DESKTOP_SETTINGS"
+  fi
+
+  # Needs Paseo to have launched at least once, so the LevelDB exists.
+  if [ -d "$PASEO_APP_SUPPORT/Local Storage/leveldb" ]; then
+    node "$CONFIG/paseo/app-settings.mjs" apply
+  else
+    echo "    no local storage yet. Launch Paseo once, quit it, re-run this script."
+  fi
+fi
+
 cat <<'EOF'
 
 Done. yabai, skhd, sketchybar, pi, agent skills, macOS defaults, and VS Code
 settings are in place.
 
 Still manual:
+  - Paseo needs to be running before plugins can install. If step 9
+    reported a failure, open Paseo.app and re-run this script.
   - Start the services:
       yabai --start-service
       skhd --start-service

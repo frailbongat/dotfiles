@@ -19,6 +19,7 @@
 !/.vscode/
 !/mcp/
 !/home/
+!/paseo/
 
 # Identity file. Belongs in ~/.gitconfig.local, outside this repo.
 # Belt and braces in case it is ever copied in here.
@@ -45,6 +46,18 @@
 /pi/context-mode/
 /pi/workbench/
 /pi/web-search-cache/
+
+# ============================================================
+# Paseo: portable config templates only. The live ~/.paseo is never
+# synced; it holds the daemon keypair, server id, and push tokens.
+# The live desktop settings are not synced either; they sit beside
+# window state, caches, and cookies in ~/Library/Application Support.
+# ============================================================
+/paseo/*
+!/paseo/config.template.json
+!/paseo/desktop-settings.template.json
+!/paseo/app-settings.template.json
+!/paseo/app-settings.mjs
 
 # ============================================================
 # Junk, inside any included folder

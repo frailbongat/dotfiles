@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "settings": {
+    "releaseChannel": "stable",
+    "notifications": {
+      "playSound": true
+    },
+    "daemon": {
+      "manageBuiltInDaemon": true,
+      "keepRunningAfterQuit": false
+    }
+  }
+}

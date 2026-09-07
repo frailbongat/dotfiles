@@ -1,0 +1,64 @@
+{
+  "@paseo:app-settings": {
+    "theme": "auto",
+    "pluginThemeId": null,
+    "language": "system",
+    "sendBehavior": "steer",
+    "serviceUrlBehavior": "external",
+    "terminalScrollbackLines": 10000,
+    "useLegacyTerminalRenderer": false,
+    "uiFontFamily": "Space Grotesk",
+    "monoFontFamily": "Dank Mono",
+    "uiBaseFontSize": 15,
+    "contentFontSize": 15,
+    "codeFontSize": 16,
+    "syntaxTheme": "one",
+    "workspaceTitleSource": "branch",
+    "sidebarWorkspaceTrailing": "diff",
+    "sidebarRowItems": {
+      "branch": false,
+      "project": false,
+      "host": true,
+      "changeRequest": true,
+      "services": true,
+      "labels": true
+    },
+    "sidebarChecksDisplay": "iconAndText",
+    "autoExpandReasoning": false,
+    "toolCallDetailLevel": "overview",
+    "chatOutlineEnabled": true,
+    "vimKeybindings": false,
+    "openInSidePane": {
+      "explorerFiles": false,
+      "diffs": false,
+      "chatFiles": false,
+      "diffFiles": false,
+      "subagents": false
+    },
+    "pullRequestOpenLocation": "explorer"
+  },
+  "@paseo:changes-preferences": {
+    "layout": "unified",
+    "desktopTreeVisible": false,
+    "wrapLines": true,
+    "hideWhitespace": false,
+    "inlineDiff": false,
+    "commitsCollapsed": true
+  },
+  "@paseo:create-agent-preferences": {
+    "provider": "pi",
+    "providerPreferences": {
+      "pi": {
+        "model": "cliproxyapi/claude-opus-5",
+        "thinkingByModel": {
+          "cliproxyapi/claude-opus-5": "high"
+        }
+      }
+    },
+    "isolation": "local",
+    "launchTarget": {
+      "kind": "chat"
+    }
+  },
+  "@paseo:preferred-editor": "vscode"
+}

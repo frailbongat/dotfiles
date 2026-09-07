@@ -26,6 +26,7 @@ for your agent skills.
 | `.vscode/` | VS Code settings and extension list |
 | `home/` | Files that belong in `~`: `.zshrc`, `.zprofile`, `.gitconfig`, `.p10k.zsh`. Symlinked out by `install.sh`. |
 | `mcp/mcp.json` | Global MCP servers. This is pi's highest-precedence MCP config. |
+| `paseo/` | Paseo templates: daemon config, desktop settings, and in-app settings. Merged into place by `install.sh`. |
 | `Brewfile` | Every brew formula and cask |
 
 Everything else in `~/.config` stays on this machine only.
@@ -92,6 +93,72 @@ pi reads MCP config in this order, first match wins:
 6. `.pi/mcp.json` (project)
 
 Edit number 1. It is the shared global config, and Crush, Cursor, and Codex do not override it.
+
+## Paseo, specifically
+
+Three templates, because Paseo keeps its settings in three places:
+
+```
+paseo/config.template.json            -> ~/.paseo/config.json                     daemon
+paseo/desktop-settings.template.json  -> .../Paseo/desktop-settings.json          Electron shell
+paseo/app-settings.template.json      -> .../Paseo/Local Storage/leveldb          everything in-app
+```
+
+The first two are plain JSON files, and `install.sh` deep-merges them with `jq`. The template wins
+on the keys it names and everything else on the machine survives.
+
+The third is the interesting one. Everything you set inside the app, theme, fonts, font sizes, diff
+layout, default agent provider, is not stored in a file. Paseo keeps it in the renderer's
+localStorage, which on disk is a Chromium LevelDB. `paseo/app-settings.mjs` reads and writes that
+store directly, using `classic-level` installed once into `~/.cache`:
+
+```sh
+node paseo/app-settings.mjs export   # live app -> app-settings.template.json
+node paseo/app-settings.mjs apply    # app-settings.template.json -> live app
+```
+
+Run `export` after changing settings in the app, then commit the diff. `install.sh` runs `apply`
+for you. It backs the store up first and rolls back if the write fails, because the same store
+holds your composer drafts and window layout.
+
+The daemon config has no export command. It is a plain file, so refresh it by hand after changing
+anything under a host's settings, minus the per-device `plugins` block:
+
+```sh
+jq 'del(.plugins)' ~/.paseo/config.json > paseo/config.template.json
+```
+
+### Which settings screen ends up where
+
+| Settings screen | Template |
+| --- | --- |
+| Appearance: theme, fonts, syntax, detail level, chat outline | `app-settings` |
+| Open location, Editor, agent defaults in the composer | `app-settings` |
+| Changes: diff layout, wrapping, whitespace | `app-settings` |
+| Notifications, Release channel, daemon management | `desktop-settings` |
+| Orchestration, Metadata generation, terminal profiles, providers | `config` (per host) |
+| Plugins | none. `install.sh` reinstalls them from Git, since paths differ per device |
+| Connections, Pair devices | none. Device identity, and it should differ per device |
+| Permissions | none. macOS grants these, not Paseo |
+
+Left out on purpose:
+
+```
+~/.paseo/daemon-keypair.json  server-id  cli-client-id  push-tokens.json   per-device identity
+config.json > plugins                    absolute paths, rewritten per device by `paseo plugin install`
+desktop-settings.json > migrations       per-device bookkeeping
+@paseo:client-id-v1, daemon-registry     device identity and paired hosts
+@paseo/provider-snapshot/*               rebuildable cache, full of absolute paths
+workspace-layout-state, sidebar-*        per-workspace layout
+window-state.json, Cookies, Cache        Electron profile junk
+```
+
+Quit Paseo before running `install.sh`. It holds a lock on the LevelDB while running and rewrites
+`desktop-settings.json` on quit, so both merges would be lost. The script checks and tells you.
+
+Fonts are not carried by the settings, only their names. `Space Grotesk` comes from the Brewfile.
+`Dank Mono` is paid and hand-installed, so copy it into `~/Library/Fonts` yourself or the app falls
+back to a default mono.
 
 ## Adding a folder later
 

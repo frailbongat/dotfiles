@@ -60,6 +60,7 @@ cask "font-jetbrains-mono-nerd-font"
 cask "font-monaspace"
 cask "font-sf-mono"
 cask "font-sf-pro"
+cask "font-space-grotesk" # Paseo UI font, see paseo/app-settings.template.json
 # Custom Discord client
 cask "legcord"
 # Open-source cross-platform alternative to AirDrop
