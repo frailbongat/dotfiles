@@ -113,7 +113,6 @@ source $ZSH/oh-my-zsh.sh
 # To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
 
-export PATH=$PATH:/Users/frailbongat/.spicetify
 
 # bun completions
 [ -s "/Users/frailbongat/.bun/_bun" ] && source "/Users/frailbongat/.bun/_bun"
