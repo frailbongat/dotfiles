@@ -8,19 +8,20 @@
  * commit hashes buried in it.
  *
  * So a notice is built from Markdown blocks rather than lines: blocks are
- * separated by a blank line, and every multi-line body, a list of commits just
- * as much as raw command output, is indented four spaces. That is a code block
- * to Markdown and an obviously quoted block to a terminal, and a code block is
- * the one construct no renderer reflows.
+ * separated by a blank line, and a blank line is the one separator both a
+ * terminal and a Markdown renderer read the same way.
  *
- * Real `-` bullets were tried first and lost. A strict Markdown renderer wants
- * a blank line before a list, and where one is missing it folds every item into
- * the paragraph above, so eight commits arrive as one run-on line with the
- * hashes buried mid-sentence. Indentation has no such precondition.
+ * Lists are real `-` bullets, not indented text. Indented text renders as a
+ * grey code box in an RPC client, which is right for command output and wrong
+ * for a list of commits the user is meant to read as prose. The blank line
+ * `joinBlocks` puts in front of every block is exactly the precondition a
+ * strict renderer wants before a list, so the bullets survive.
  *
- * Lists that mean different things get their own labelled section rather than
- * one pile, because `git log HEAD..origin/main` and the same range reversed are
- * indistinguishable once they share a list.
+ * Verbatim command output is the one thing still boxed, in a fenced block,
+ * because a diff or a conflict marker is destroyed by reflowing.
+ *
+ * A notice never ends on a fenced block. Two notices in a row can arrive as one
+ * string, and a trailing block swallows the next message into itself.
  *
  * No pi runtime behind any of it, same as `ship-git.ts`, so it unit-tests on
  * its own.
@@ -43,12 +44,8 @@ function toLines(value: readonly string[] | string): string[] {
 }
 
 /**
- * A capped list, indented so a renderer keeps one item per line. The cap is
- * elided rather than dropped, because "and 12 more" is itself the news when a
- * trunk has run far ahead.
- *
- * The `-` stays in front of each item as a literal character inside the block.
- * It costs nothing and it still reads as a list to a human.
+ * A capped bullet list. The cap is elided rather than dropped, because "and 12
+ * more" is itself the news when a trunk has run far ahead.
  */
 export function bulletList(
   value: readonly string[] | string,
@@ -60,21 +57,21 @@ export function bulletList(
   const shown = lines.slice(0, max).map((line) => `- ${truncate(line)}`);
   const hidden = lines.length - max;
   if (hidden > 0) shown.push(`- …and ${hidden} more`);
-  return shown.map((line) => `    ${line}`).join("\n");
+  return shown.join("\n");
 }
 
 /**
- * Verbatim command output as an indented block: a Markdown code block, and a
- * visibly quoted block anywhere else. Never bulleted, because git output is
- * not a list and wrapping it as one destroys diffs and conflict markers.
+ * Verbatim command output in a fenced block. Never bulleted, because git output
+ * is not a list and wrapping it as one destroys diffs and conflict markers.
+ *
+ * Fenced rather than indented: an indented block ends at the first line that is
+ * not indented, so anything printed after it can be pulled inside. A fence
+ * closes itself.
  */
 export function outputBlock(output: string): string {
   const body = output.replace(/\s+$/, "");
   if (!body) return "";
-  return body
-    .split(/\r?\n/)
-    .map((line) => (line.trim() ? `    ${line}` : ""))
-    .join("\n");
+  return `\`\`\`\n${body.replace(/`{3,}/g, "'''")}\n\`\`\``;
 }
 
 /**
@@ -125,7 +122,7 @@ export function labelledList(
   max = MAX_ITEMS,
 ): string {
   const list = items ? bulletList(items, max) : "";
-  const body = list || (empty ? `    ${empty}` : "");
+  const body = list || (empty ? empty : "");
   if (!body) return "";
   const head = label.trim().replace(/[:\s]+$/, "");
   return joinBlocks(head ? `${head}:` : "", body);

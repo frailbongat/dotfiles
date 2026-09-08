@@ -145,23 +145,42 @@ describe("landing fast-forward", () => {
 
     expect(ranRebase(calls)).toBe(true);
     expect(notices).toHaveLength(1);
-    expect(notices[0]).toContain("origin/main moved");
-    expect(notices[0]).toContain("deadbee");
-    // A Markdown renderer collapses a single newline and folds a bullet list
-    // into the paragraph above it, so the commits arrive as indented blocks.
-    // Each side is named, because otherwise the reader cannot tell which of
-    // these identical-looking lines is the commit they are shipping.
+    // One sentence and the commits that arrived. The reader's own commits get
+    // their own named list, because two `git log --oneline` ranges of the same
+    // trunk are the same shape of line in one pile.
     expect(notices[0]).toBe(
       [
-        "origin/main moved 1 commit ahead, so deadbee is being rebased onto it.",
+        "origin/main has 1 new commit, so your work goes on top of it.",
         "",
-        "Arrived on origin/main:",
+        "- 431b65a perf(convex): resolve auth without Better Auth bundle",
         "",
-        "    - 431b65a perf(convex): resolve auth without Better Auth bundle",
+        "Your commits:",
         "",
-        "Replaying on top:",
+        "- deadbee fix(toast): add upper bound at close arrival",
+      ].join("\n"),
+    );
+  });
+
+  it("says nothing about local commits when there are none", async () => {
+    const notices: string[] = [];
+    const { git } = fakeGit({
+      fetch: [result("")],
+      "merge-base": [result("", 1), result("")],
+      "rev-parse": [result("deadbee\n")],
+      log: [
+        result("431b65a perf(convex): resolve auth without Better Auth bundle\n"),
+        result(""),
+      ],
+      rebase: [result("Successfully rebased and updated refs/heads/main.\n")],
+    });
+
+    await ensureFastForward(git, "main", (message) => notices.push(message));
+
+    expect(notices[0]).toBe(
+      [
+        "origin/main has 1 new commit, so your work goes on top of it.",
         "",
-        "    - deadbee fix(toast): add upper bound at close arrival",
+        "- 431b65a perf(convex): resolve auth without Better Auth bundle",
       ].join("\n"),
     );
   });
@@ -927,49 +946,47 @@ describe("lint cache file", () => {
 });
 
 describe("notice formatting", () => {
-  it("indents a list so a renderer cannot fold it into one line", () => {
+  it("bullets a list, one blank line off the sentence above it", () => {
     expect(
-      formatNotice("origin/main moved 2 commits ahead:", {
+      formatNotice("origin/main has 2 new commits:", {
         items: "dff61fa first subject\n8a1c0d2 second subject",
       }),
     ).toBe(
       [
-        "origin/main moved 2 commits ahead.",
+        "origin/main has 2 new commits.",
         "",
-        "    - dff61fa first subject",
-        "    - 8a1c0d2 second subject",
+        "- dff61fa first subject",
+        "- 8a1c0d2 second subject",
       ].join("\n"),
     );
   });
 
-  it("names each side of a rebase so they cannot be read as one pile", () => {
+  it("names a second list so the two cannot be read as one pile", () => {
     expect(
-      formatNotice("origin/main moved 1 commit ahead, so 40a8a40 is being rebased onto it", {
+      formatNotice("origin/main has 1 new commit, so your work goes on top of it", {
+        items: "8999110 refactor(hero): add icon",
         sections: [
-          { label: "Arrived on origin/main", items: "8999110 refactor(hero): add icon" },
-          { label: "Replaying on top", items: "40a8a40 refactor(toast): add bound" },
+          { label: "Your commits", items: "40a8a40 refactor(toast): add bound" },
         ],
       }),
     ).toBe(
       [
-        "origin/main moved 1 commit ahead, so 40a8a40 is being rebased onto it.",
+        "origin/main has 1 new commit, so your work goes on top of it.",
         "",
-        "Arrived on origin/main:",
+        "- 8999110 refactor(hero): add icon",
         "",
-        "    - 8999110 refactor(hero): add icon",
+        "Your commits:",
         "",
-        "Replaying on top:",
-        "",
-        "    - 40a8a40 refactor(toast): add bound",
+        "- 40a8a40 refactor(toast): add bound",
       ].join("\n"),
     );
   });
 
-  it("says so when a named side is empty, rather than dropping it", () => {
+  it("says so when a named list is empty, rather than dropping it", () => {
     expect(
-      labelledList({ label: "Replaying on top", items: "", empty: "(nothing)" }),
-    ).toBe("Replaying on top:\n\n    (nothing)");
-    expect(labelledList({ label: "Replaying on top", items: "" })).toBe("");
+      labelledList({ label: "Your commits", items: "", empty: "(nothing)" }),
+    ).toBe("Your commits:\n\n(nothing)");
+    expect(labelledList({ label: "Your commits", items: "" })).toBe("");
   });
 
   it("elides a list too long to read, and says how much it hid", () => {
@@ -977,7 +994,7 @@ describe("notice formatting", () => {
     const lines = bulletList(items).split("\n");
 
     expect(lines).toHaveLength(9);
-    expect(lines.at(-1)).toBe("    - …and 3 more");
+    expect(lines.at(-1)).toBe("- …and 3 more");
   });
 
   it("truncates an item no terminal line could hold", () => {
@@ -988,9 +1005,16 @@ describe("notice formatting", () => {
     expect(item.endsWith("…")).toBe(true);
   });
 
-  it("indents command output so a renderer keeps its line breaks", () => {
+  it("fences command output so a renderer keeps its line breaks", () => {
     expect(outputBlock("error: one\n\nerror: two\n")).toBe(
-      "    error: one\n\n    error: two",
+      "```\nerror: one\n\nerror: two\n```",
+    );
+  });
+
+  // An unclosed fence would swallow whatever prints next.
+  it("defuses a fence inside the output it is quoting", () => {
+    expect(outputBlock("before\n```\nafter")).toBe(
+      "```\nbefore\n'''\nafter\n```",
     );
   });
 
@@ -1004,7 +1028,9 @@ describe("notice formatting", () => {
       [
         "eslint failed; changes remain staged.",
         "",
-        "    src/app.ts:3:1  error  Unexpected any",
+        "```",
+        "src/app.ts:3:1  error  Unexpected any",
+        "```",
         "",
         "Format them yourself, or stage the rest of the file.",
       ].join("\n"),

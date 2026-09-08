@@ -210,14 +210,12 @@ async function rebaseOntoLandingRef(git: Git, landOn: string): Promise<void> {
  * trunk moved since the last look.
  *
  * `notify` is called only when there is something to say, so the ordinary run
- * where nothing moved stays silent. The pre-rebase commit goes into the message
- * because a rebase is the one step here that rewrites local history, and that
- * hash is how the reflog gets it back.
+ * where nothing moved stays silent.
  *
- * The two sides of the rebase are listed separately and named. Both are
- * `git log --oneline` output about the same trunk, so in one list they are the
- * same shape of line and the only commit the reader actually cares about, their
- * own, is the one they cannot pick out.
+ * What the notice says is only what arrived from the trunk. The usual ship is
+ * one uncommitted tree with no local commits at all, so a second list naming
+ * the reader's own commits is empty every time and the sentence explaining that
+ * it is empty is noise. It appears only on the rare run that has some.
  */
 export async function ensureFastForward(
   git: Git,
@@ -238,7 +236,6 @@ export async function ensureFastForward(
       .code === 0;
   if (await isAncestor()) return;
 
-  const before = (await git(["rev-parse", "--short", "HEAD"])).stdout.trim();
   const behind = (
     await git(["log", "--oneline", `HEAD..origin/${landOn}`])
   ).stdout.trim();
@@ -246,22 +243,14 @@ export async function ensureFastForward(
     await git(["log", "--oneline", `origin/${landOn}..HEAD`])
   ).stdout.trim();
   const commits = behind ? behind.split("\n").length : 0;
-  const sides = [
-    {
-      label: `Arrived on origin/${landOn}`,
-      items: behind,
-      empty: "(nothing)",
-    },
-    {
-      label: "Replaying on top",
-      items: mine,
-      empty: "(nothing; only the working tree is being replayed)",
-    },
-  ];
+  const detail = {
+    items: behind,
+    sections: mine ? [{ label: "Your commits", items: mine }] : undefined,
+  };
   notify(
     formatNotice(
-      `origin/${landOn} moved ${commits ? `${commits} commit${commits === 1 ? "" : "s"} ` : ""}ahead, so ${before || "HEAD"} is being rebased onto it`,
-      { sections: sides },
+      `origin/${landOn} has ${commits || "new"} new commit${commits === 1 ? "" : "s"}, so your work goes on top of it`,
+      detail,
     ),
   );
 
@@ -271,7 +260,7 @@ export async function ensureFastForward(
   throw new Error(
     formatNotice(
       `Rebasing onto origin/${landOn} reported success but HEAD still does not descend from it, so nothing was pushed`,
-      { sections: sides, footer: "Sort it out by hand." },
+      { ...detail, footer: "Sort it out by hand." },
     ),
   );
 }

@@ -1174,6 +1174,10 @@ export async function runShip(
   const commitHash = await readHead();
 
   const notify = (text: string) => ctx.ui.notify(text, "info");
+  const target =
+    destination.kind === "trunk"
+      ? `origin/${destination.ref}`
+      : destination.branch;
   // The fast-forward was settled before the checks, the model call, and the
   // commit, none of which the remote waits through. pushWithRetry settles it
   // again, and keeps settling it while sibling worktrees keep landing.
@@ -1187,11 +1191,12 @@ export async function runShip(
     new Error(
       joinBlocks(
         formatNotice(
-          `Committed ${commitHash} (${message.split("\n")[0]}) but the push failed`,
+          `Committed ${commitHash} but the push to ${target} failed`,
           raw ? { output: detail } : undefined,
         ),
         raw ? "" : detail,
-        "The commit is safe in your local history; fix the cause and run /ship again.",
+        message.split("\n")[0] ?? "",
+        "The commit is safe locally. Fix the cause and run /ship again.",
       ),
     );
 
@@ -1221,10 +1226,6 @@ export async function runShip(
   // Re-syncing may have rebased onto a moved ref, which gives the commit a new
   // hash; report the one that is actually on the remote.
   const pushedHash = await readHead();
-  const target =
-    destination.kind === "trunk"
-      ? `origin/${destination.ref}`
-      : destination.branch;
 
   // Landing HEAD:main from a worktree moves origin/main and nothing local, so
   // the trunk checkout is left behind by a commit the user just made.
@@ -1245,14 +1246,13 @@ export async function runShip(
     (line) => !line.includes(pushedHash.slice(0, 7)),
   );
 
-  // The commit message is the whole report: it names what landed, and it only
-  // runs past one line when the commit itself has a body. The hash, the target
-  // and the check list are bookkeeping nobody reads on a run that worked, so
-  // they wait for `/ship verbose`. Housekeeping notices still print, because
-  // those are the ones that ask the user to do something.
+  // Two lines, in the order they get read: where it went, then what went. The
+  // check list is bookkeeping nobody reads on a run that worked, so it waits
+  // for `/ship verbose`. Housekeeping notices still print, because those are
+  // the ones that ask the user to do something.
   ctx.ui.notify(
     joinBlocks(
-      verbose ? `Shipped ${pushedHash} to ${target}.` : "",
+      `Shipped ${pushedHash} to ${target}.`,
       message.trim(),
       verbose ? `Checks: ${checkSummary}` : "",
       notable.length > 0 ? bulletList(notable, notable.length) : "",
