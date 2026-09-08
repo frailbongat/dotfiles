@@ -213,6 +213,11 @@ async function rebaseOntoLandingRef(git: Git, landOn: string): Promise<void> {
  * where nothing moved stays silent. The pre-rebase commit goes into the message
  * because a rebase is the one step here that rewrites local history, and that
  * hash is how the reflog gets it back.
+ *
+ * The two sides of the rebase are listed separately and named. Both are
+ * `git log --oneline` output about the same trunk, so in one list they are the
+ * same shape of line and the only commit the reader actually cares about, their
+ * own, is the one they cannot pick out.
  */
 export async function ensureFastForward(
   git: Git,
@@ -237,11 +242,26 @@ export async function ensureFastForward(
   const behind = (
     await git(["log", "--oneline", `HEAD..origin/${landOn}`])
   ).stdout.trim();
+  const mine = (
+    await git(["log", "--oneline", `origin/${landOn}..HEAD`])
+  ).stdout.trim();
   const commits = behind ? behind.split("\n").length : 0;
+  const sides = [
+    {
+      label: `Arrived on origin/${landOn}`,
+      items: behind,
+      empty: "(nothing)",
+    },
+    {
+      label: "Replaying on top",
+      items: mine,
+      empty: "(nothing; only the working tree is being replayed)",
+    },
+  ];
   notify(
     formatNotice(
       `origin/${landOn} moved ${commits ? `${commits} commit${commits === 1 ? "" : "s"} ` : ""}ahead, so ${before || "HEAD"} is being rebased onto it`,
-      { items: behind },
+      { sections: sides },
     ),
   );
 
@@ -251,7 +271,7 @@ export async function ensureFastForward(
   throw new Error(
     formatNotice(
       `Rebasing onto origin/${landOn} reported success but HEAD still does not descend from it, so nothing was pushed`,
-      { items: behind, footer: "Sort it out by hand." },
+      { sections: sides, footer: "Sort it out by hand." },
     ),
   );
 }

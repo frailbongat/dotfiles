@@ -8,10 +8,19 @@
  * commit hashes buried in it.
  *
  * So a notice is built from Markdown blocks rather than lines: blocks are
- * separated by a blank line, lists are real `-` bullets, and raw command output
- * is indented four spaces, which is a code block to Markdown and an obviously
- * quoted block to a terminal. Both renderers then agree about where one piece
- * of information ends and the next begins.
+ * separated by a blank line, and every multi-line body, a list of commits just
+ * as much as raw command output, is indented four spaces. That is a code block
+ * to Markdown and an obviously quoted block to a terminal, and a code block is
+ * the one construct no renderer reflows.
+ *
+ * Real `-` bullets were tried first and lost. A strict Markdown renderer wants
+ * a blank line before a list, and where one is missing it folds every item into
+ * the paragraph above, so eight commits arrive as one run-on line with the
+ * hashes buried mid-sentence. Indentation has no such precondition.
+ *
+ * Lists that mean different things get their own labelled section rather than
+ * one pile, because `git log HEAD..origin/main` and the same range reversed are
+ * indistinguishable once they share a list.
  *
  * No pi runtime behind any of it, same as `ship-git.ts`, so it unit-tests on
  * its own.
@@ -34,8 +43,12 @@ function toLines(value: readonly string[] | string): string[] {
 }
 
 /**
- * A Markdown bullet list, capped. The cap is elided rather than dropped,
- * because "and 12 more" is itself the news when a trunk has run far ahead.
+ * A capped list, indented so a renderer keeps one item per line. The cap is
+ * elided rather than dropped, because "and 12 more" is itself the news when a
+ * trunk has run far ahead.
+ *
+ * The `-` stays in front of each item as a literal character inside the block.
+ * It costs nothing and it still reads as a list to a human.
  */
 export function bulletList(
   value: readonly string[] | string,
@@ -47,7 +60,7 @@ export function bulletList(
   const shown = lines.slice(0, max).map((line) => `- ${truncate(line)}`);
   const hidden = lines.length - max;
   if (hidden > 0) shown.push(`- …and ${hidden} more`);
-  return shown.join("\n");
+  return shown.map((line) => `    ${line}`).join("\n");
 }
 
 /**
@@ -79,14 +92,44 @@ export function joinBlocks(
     .join("\n\n");
 }
 
+/** One named pile of items, for when two piles would otherwise merge. */
+export type NoticeSection = {
+  /** What this pile is. A trailing colon is added, so leave it off. */
+  label: string;
+  /** Names, hashes, paths: anything that reads as a list. */
+  items?: readonly string[] | string;
+  /** Shown in place of the list when there is nothing in it. */
+  empty?: string;
+};
+
 export type NoticeDetail = {
   /** Names, hashes, paths: anything that reads as a list. */
   items?: readonly string[] | string;
+  /** Lists that mean different things, kept apart and named. */
+  sections?: readonly NoticeSection[];
   /** Verbatim output from a command that ran. */
   output?: string;
   /** What to do about it, after the evidence. */
   footer?: string;
 };
+
+/**
+ * A named list: the label on its own line, its items in a block beneath it.
+ *
+ * The label keeps its colon here, unlike a headline, because the blank line
+ * after it already tells both renderers a new block starts. A colon only
+ * misleads when a single newline follows it.
+ */
+export function labelledList(
+  { label, items, empty }: NoticeSection,
+  max = MAX_ITEMS,
+): string {
+  const list = items ? bulletList(items, max) : "";
+  const body = list || (empty ? `    ${empty}` : "");
+  if (!body) return "";
+  const head = label.trim().replace(/[:\s]+$/, "");
+  return joinBlocks(head ? `${head}:` : "", body);
+}
 
 /**
  * A headline sentence, then its evidence.
@@ -98,12 +141,13 @@ export type NoticeDetail = {
  */
 export function formatNotice(
   headline: string,
-  { items, output, footer }: NoticeDetail = {},
+  { items, sections, output, footer }: NoticeDetail = {},
 ): string {
   const head = headline.trim().replace(/[:\s]+$/, "");
   return joinBlocks(
     head && /[.!?…]$/.test(head) ? head : head ? `${head}.` : "",
     items ? bulletList(items) : "",
+    ...(sections ?? []).map((section) => labelledList(section)),
     output ? outputBlock(output) : "",
     footer,
   );

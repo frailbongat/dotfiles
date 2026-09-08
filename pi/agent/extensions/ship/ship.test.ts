@@ -7,7 +7,13 @@ import {
   RebaseConflictError,
 } from "./ship-git";
 import { resolveDestination, resolveTrunk } from "./ship-destination";
-import { bulletList, formatNotice, joinBlocks, outputBlock } from "./ship-notice";
+import {
+  bulletList,
+  formatNotice,
+  joinBlocks,
+  labelledList,
+  outputBlock,
+} from "./ship-notice";
 import { parseShipArguments } from "./ship-arguments";
 import { resolveGitHubRepository } from "./ship-repository";
 import {
@@ -127,7 +133,11 @@ describe("landing fast-forward", () => {
       // Behind first, a descendant once the rebase has replayed HEAD.
       "merge-base": [result("", 1), result("")],
       "rev-parse": [result("deadbee\n")],
-      log: [result("431b65a perf(convex): resolve auth without Better Auth bundle\n")],
+      // Incoming from the trunk first, then what is being replayed on top.
+      log: [
+        result("431b65a perf(convex): resolve auth without Better Auth bundle\n"),
+        result("deadbee fix(toast): add upper bound at close arrival\n"),
+      ],
       rebase: [result("Successfully rebased and updated refs/heads/main.\n")],
     });
 
@@ -137,13 +147,21 @@ describe("landing fast-forward", () => {
     expect(notices).toHaveLength(1);
     expect(notices[0]).toContain("origin/main moved");
     expect(notices[0]).toContain("deadbee");
-    // A Markdown renderer collapses a single newline, so the commits have to
-    // arrive as a list under a blank line rather than appended to the sentence.
+    // A Markdown renderer collapses a single newline and folds a bullet list
+    // into the paragraph above it, so the commits arrive as indented blocks.
+    // Each side is named, because otherwise the reader cannot tell which of
+    // these identical-looking lines is the commit they are shipping.
     expect(notices[0]).toBe(
       [
         "origin/main moved 1 commit ahead, so deadbee is being rebased onto it.",
         "",
-        "- 431b65a perf(convex): resolve auth without Better Auth bundle",
+        "Arrived on origin/main:",
+        "",
+        "    - 431b65a perf(convex): resolve auth without Better Auth bundle",
+        "",
+        "Replaying on top:",
+        "",
+        "    - deadbee fix(toast): add upper bound at close arrival",
       ].join("\n"),
     );
   });
@@ -909,7 +927,7 @@ describe("lint cache file", () => {
 });
 
 describe("notice formatting", () => {
-  it("puts a list under a blank line instead of after a colon", () => {
+  it("indents a list so a renderer cannot fold it into one line", () => {
     expect(
       formatNotice("origin/main moved 2 commits ahead:", {
         items: "dff61fa first subject\n8a1c0d2 second subject",
@@ -918,10 +936,40 @@ describe("notice formatting", () => {
       [
         "origin/main moved 2 commits ahead.",
         "",
-        "- dff61fa first subject",
-        "- 8a1c0d2 second subject",
+        "    - dff61fa first subject",
+        "    - 8a1c0d2 second subject",
       ].join("\n"),
     );
+  });
+
+  it("names each side of a rebase so they cannot be read as one pile", () => {
+    expect(
+      formatNotice("origin/main moved 1 commit ahead, so 40a8a40 is being rebased onto it", {
+        sections: [
+          { label: "Arrived on origin/main", items: "8999110 refactor(hero): add icon" },
+          { label: "Replaying on top", items: "40a8a40 refactor(toast): add bound" },
+        ],
+      }),
+    ).toBe(
+      [
+        "origin/main moved 1 commit ahead, so 40a8a40 is being rebased onto it.",
+        "",
+        "Arrived on origin/main:",
+        "",
+        "    - 8999110 refactor(hero): add icon",
+        "",
+        "Replaying on top:",
+        "",
+        "    - 40a8a40 refactor(toast): add bound",
+      ].join("\n"),
+    );
+  });
+
+  it("says so when a named side is empty, rather than dropping it", () => {
+    expect(
+      labelledList({ label: "Replaying on top", items: "", empty: "(nothing)" }),
+    ).toBe("Replaying on top:\n\n    (nothing)");
+    expect(labelledList({ label: "Replaying on top", items: "" })).toBe("");
   });
 
   it("elides a list too long to read, and says how much it hid", () => {
@@ -929,7 +977,7 @@ describe("notice formatting", () => {
     const lines = bulletList(items).split("\n");
 
     expect(lines).toHaveLength(9);
-    expect(lines.at(-1)).toBe("- …and 3 more");
+    expect(lines.at(-1)).toBe("    - …and 3 more");
   });
 
   it("truncates an item no terminal line could hold", () => {
