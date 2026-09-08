@@ -51,6 +51,16 @@ Always in effect, no loading needed:
 - Sentence case headings. No decorative emojis. No bolding every noun.
 - Active voice. Name the actor.
 
+## Browsers
+
+Drive browsers with the `playwright-cli` skill at `/Users/frailbongat/.claude/skills/playwright-cli/SKILL.md`. Load it before any browser task. The `playwright` MCP server is disabled in `~/.config/mcp/mcp.json`; do not re-enable it or call `mcp__playwright`.
+
+To show me a page, hand it to my default browser instead of automating one. `open "<url>"` opens a tab in the front Zen window.
+
+For automation, use `playwright-cli open --browser=firefox`. Playwright cannot drive Zen: it launches and speaks WebDriver BiDi, then dies on `openWindow() not supported in Zen`. Firefox is the closest engine. Never fall back to Chrome or Chromium without asking.
+
+Playwright always drives a fresh browser with its own profile. It cannot attach to my running Zen window, and `attach --cdp` is Chrome and Edge only. If a task truly needs my live Zen session and its logins, say so and stop rather than opening a throwaway browser.
+
 ## Git and shipping workflow
 
 These rules apply in every project and override project-level defaults unless the user explicitly says otherwise.
