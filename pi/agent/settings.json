@@ -9,6 +9,9 @@
     "cliproxyapi/claude-opus-5",
     "cliproxyapi/claude-fable-5"
   ],
+  "skills": [
+    "~/.claude/skills"
+  ],
   "packages": [
     "npm:pi-web-access",
     "npm:pi-mcp-adapter",
