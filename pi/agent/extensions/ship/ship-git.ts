@@ -6,6 +6,8 @@
  * unit-tested without loading the extension host.
  */
 
+import { formatNotice } from "./ship-notice";
+
 /** Beyond this, argv length and runtime stop being worth it. */
 const MAX_ERROR_OUTPUT = 2_000;
 const REBASE_TIMEOUT_MS = 120_000;
@@ -184,15 +186,22 @@ async function rebaseOntoLandingRef(git: Git, landOn: string): Promise<void> {
   // An abort that fails means the rebase never started, which is the usual case
   // for a tree even --autostash will not touch. Say which it was.
   const aborted = await git(["rebase", "--abort"], REBASE_TIMEOUT_MS);
-  const output = displayOutput(rebased);
   throw new Error(
-    `origin/${landOn} moved and rebasing onto it failed, so nothing was pushed. Resolve it by hand:${
-      output ? `\n${output}` : ""
-    }${rebaseHint(rebased)}${
-      aborted.code === 0
-        ? "\nThe rebase was aborted, so the working tree is where it was."
-        : ""
-    }`,
+    formatNotice(
+      `origin/${landOn} moved and rebasing onto it failed, so nothing was pushed`,
+      {
+        output: displayOutput(rebased),
+        footer: [
+          "Resolve it by hand.",
+          rebaseHint(rebased).trim(),
+          aborted.code === 0
+            ? "The rebase was aborted, so the working tree is where it was."
+            : "",
+        ]
+          .filter(Boolean)
+          .join(" "),
+      },
+    ),
   );
 }
 
@@ -213,7 +222,9 @@ export async function ensureFastForward(
   const fetched = await git(["fetch", "origin", landOn, "--quiet"]);
   if (fetched.code !== 0) {
     throw new Error(
-      `Fetching origin/${landOn} failed:\n${displayOutput(fetched)}`,
+      formatNotice(`Fetching origin/${landOn} failed`, {
+        output: displayOutput(fetched),
+      }),
     );
   }
 
@@ -226,19 +237,22 @@ export async function ensureFastForward(
   const behind = (
     await git(["log", "--oneline", `HEAD..origin/${landOn}`])
   ).stdout.trim();
+  const commits = behind ? behind.split("\n").length : 0;
   notify(
-    `origin/${landOn} moved; rebasing ${before || "HEAD"} onto it:${
-      behind ? `\n${behind}` : ""
-    }`,
+    formatNotice(
+      `origin/${landOn} moved ${commits ? `${commits} commit${commits === 1 ? "" : "s"} ` : ""}ahead, so ${before || "HEAD"} is being rebased onto it`,
+      { items: behind },
+    ),
   );
 
   await rebaseOntoLandingRef(git, landOn);
   if (await isAncestor()) return;
 
   throw new Error(
-    `Rebasing onto origin/${landOn} reported success but HEAD still does not descend from it, so nothing was pushed. Sort it out by hand:${
-      behind ? `\n${behind}` : ""
-    }`,
+    formatNotice(
+      `Rebasing onto origin/${landOn} reported success but HEAD still does not descend from it, so nothing was pushed`,
+      { items: behind, footer: "Sort it out by hand." },
+    ),
   );
 }
 
@@ -418,6 +432,9 @@ export async function syncLocalTrunk(
   notify(
     merged.code === 0
       ? `Fast-forwarded ${trunk} to ${await describeCommit(git, remote)} in ${path}.`
-      : `${path} is behind origin/${trunk} and could not be fast-forwarded; pull it by hand:\n${displayOutput(merged)}`,
+      : formatNotice(
+          `${path} is behind origin/${trunk} and could not be fast-forwarded`,
+          { output: displayOutput(merged), footer: "Pull it by hand." },
+        ),
   );
 }

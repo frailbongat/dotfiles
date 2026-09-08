@@ -7,6 +7,7 @@ import {
   RebaseConflictError,
 } from "./ship-git";
 import { resolveDestination, resolveTrunk } from "./ship-destination";
+import { bulletList, formatNotice, joinBlocks, outputBlock } from "./ship-notice";
 import { parseShipArguments } from "./ship-arguments";
 import { resolveGitHubRepository } from "./ship-repository";
 import {
@@ -136,7 +137,15 @@ describe("landing fast-forward", () => {
     expect(notices).toHaveLength(1);
     expect(notices[0]).toContain("origin/main moved");
     expect(notices[0]).toContain("deadbee");
-    expect(notices[0]).toContain("431b65a");
+    // A Markdown renderer collapses a single newline, so the commits have to
+    // arrive as a list under a blank line rather than appended to the sentence.
+    expect(notices[0]).toBe(
+      [
+        "origin/main moved 1 commit ahead, so deadbee is being rebased onto it.",
+        "",
+        "- 431b65a perf(convex): resolve auth without Better Auth bundle",
+      ].join("\n"),
+    );
   });
 
   it("leaves a content conflict in progress and reports it as one", async () => {
@@ -896,5 +905,68 @@ describe("lint cache file", () => {
     expect(prepareCache("ruff check", root, root)).toBe(
       join(root, "ship-ruff-check-cache"),
     );
+  });
+});
+
+describe("notice formatting", () => {
+  it("puts a list under a blank line instead of after a colon", () => {
+    expect(
+      formatNotice("origin/main moved 2 commits ahead:", {
+        items: "dff61fa first subject\n8a1c0d2 second subject",
+      }),
+    ).toBe(
+      [
+        "origin/main moved 2 commits ahead.",
+        "",
+        "- dff61fa first subject",
+        "- 8a1c0d2 second subject",
+      ].join("\n"),
+    );
+  });
+
+  it("elides a list too long to read, and says how much it hid", () => {
+    const items = Array.from({ length: 11 }, (_, index) => `commit ${index}`);
+    const lines = bulletList(items).split("\n");
+
+    expect(lines).toHaveLength(9);
+    expect(lines.at(-1)).toBe("- …and 3 more");
+  });
+
+  it("truncates an item no terminal line could hold", () => {
+    const long = `feat: ${"x".repeat(200)}`;
+    const item = bulletList([long]);
+
+    expect(item.length).toBeLessThan(long.length);
+    expect(item.endsWith("…")).toBe(true);
+  });
+
+  it("indents command output so a renderer keeps its line breaks", () => {
+    expect(outputBlock("error: one\n\nerror: two\n")).toBe(
+      "    error: one\n\n    error: two",
+    );
+  });
+
+  it("keeps evidence, then advice, as separate blocks", () => {
+    expect(
+      formatNotice("eslint failed; changes remain staged", {
+        output: "src/app.ts:3:1  error  Unexpected any",
+        footer: "Format them yourself, or stage the rest of the file.",
+      }),
+    ).toBe(
+      [
+        "eslint failed; changes remain staged.",
+        "",
+        "    src/app.ts:3:1  error  Unexpected any",
+        "",
+        "Format them yourself, or stage the rest of the file.",
+      ].join("\n"),
+    );
+  });
+
+  it("drops the blocks that have nothing in them", () => {
+    expect(joinBlocks("Shipped 9fed34a.", "", undefined, "fix: thing")).toBe(
+      "Shipped 9fed34a.\n\nfix: thing",
+    );
+    expect(formatNotice("Nothing to ship")).toBe("Nothing to ship.");
   });
 });

@@ -5,6 +5,11 @@
       "auth": "oauth",
       "lifecycle": "lazy",
       "directTools": true
+    },
+    "playwright": {
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@0.0.80", "--isolated"],
+      "lifecycle": "lazy"
     }
   }
 }

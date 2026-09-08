@@ -53,6 +53,7 @@ import {
   parseShipArguments,
   type ShipArguments,
 } from "./ship-arguments";
+import { bulletList, formatNotice, joinBlocks } from "./ship-notice";
 
 export { parseGitHubRepository } from "./ship-repository";
 export { ensureFastForward } from "./ship-git";
@@ -141,9 +142,6 @@ function conflictHandoffPrompt(
   command: string,
   skillPath: string,
 ): string {
-  const paths = error.paths.length
-    ? `\n\nConflicted files:\n${error.paths.map((path) => `- ${path}`).join("\n")}`
-    : "";
   const conduct =
     error.kind === "rebase"
       ? "Finish the rebase: stage each file as you resolve it and continue until no rebase is in progress. Never abort it."
@@ -152,12 +150,14 @@ function conflictHandoffPrompt(
     error.afterResolution ??
     `When every conflict is resolved, ${command} will rerun automatically; do not commit or push the shipped changes yourself.`;
 
-  return (
-    `${command} stopped on a git conflict; nothing was pushed.\n\n` +
-    `${error.message}${paths}\n\n` +
+  return joinBlocks(
+    `${command} stopped on a git conflict; nothing was pushed.`,
+    error.message,
+    error.paths.length ? "Conflicted files:" : "",
+    bulletList(error.paths, error.paths.length),
     `Load the resolving-merge-conflicts skill at ${skillPath} and follow it. ` +
-    `The ${command} I invoked authorizes the resolution. ${conduct}\n\n` +
-    finish
+      `The ${command} I invoked authorizes the resolution. ${conduct}`,
+    finish,
   );
 }
 /** Beyond this, argv length and runtime stop being worth it; the hook path is better. */
@@ -250,9 +250,10 @@ type GitHubIssueReference = GitHubRepository & {
 };
 
 function commandError(action: string, result: GitCommandResult): Error {
-  const output = displayOutput(result);
   return new Error(
-    `${action} failed (exit ${result.code})${output ? `:\n${output}` : ""}`,
+    formatNotice(`${action} failed (exit ${result.code})`, {
+      output: displayOutput(result),
+    }),
   );
 }
 
@@ -816,7 +817,9 @@ async function runStagedChecks(
       // A non-zero exit here is a parse error or a crash, not a style diff.
       if (written.code !== 0) {
         throw new Error(
-          `${spec.label} failed; changes remain staged:\n${displayOutput(written)}`,
+          formatNotice(`${spec.label} failed; changes remain staged`, {
+            output: displayOutput(written),
+          }),
         );
       }
 
@@ -842,11 +845,13 @@ async function runStagedChecks(
         ? result.code !== 0 || result.stdout.trim().length > 0
         : result.code !== 0;
       if (failed) {
-        const hint = spec.writeArgs
-          ? "\nThese files have unstaged edits, so ship will not rewrite them. Format them yourself, or stage the rest of the file."
-          : "";
         throw new Error(
-          `${spec.label} failed; changes remain staged:\n${displayOutput(result)}${hint}`,
+          formatNotice(`${spec.label} failed; changes remain staged`, {
+            output: displayOutput(result),
+            footer: spec.writeArgs
+              ? "These files have unstaged edits, so ship will not rewrite them. Format them yourself, or stage the rest of the file."
+              : undefined,
+          }),
         );
       }
     }
@@ -865,7 +870,10 @@ function refuseSensitivePaths(paths: string[]): void {
   const sensitive = paths.filter(isSensitivePath);
   if (sensitive.length === 0) return;
   throw new Error(
-    `Refusing to commit sensitive path${sensitive.length === 1 ? "" : "s"}:\n${sensitive.join("\n")}`,
+    formatNotice(
+      `Refusing to commit sensitive path${sensitive.length === 1 ? "" : "s"}`,
+      { items: sensitive },
+    ),
   );
 }
 
@@ -948,7 +956,10 @@ async function assertLandable(
     : false;
   if (!approved) {
     throw new Error(
-      `Refusing to land existing commits on ${landOn} unconfirmed:\n${riders}`,
+      formatNotice(
+        `Refusing to land ${count} existing commit${count === 1 ? "" : "s"} on ${landOn} unconfirmed`,
+        { items: riders },
+      ),
     );
   }
 }
@@ -1169,9 +1180,19 @@ export async function runShip(
   // Past this line a commit exists, so every failure has to say so. Losing the
   // push is recoverable and obvious; not knowing whether the work was committed
   // is what makes someone re-run and double-commit, or reset and lose it.
-  const committed = (detail: string) =>
+  // `raw` separates the two kinds of detail this takes: verbatim git output,
+  // which is indented as a block, and an error message that is already a
+  // formatted notice, which would lose its own structure if it were.
+  const committed = (detail: string, raw = true) =>
     new Error(
-      `Committed ${commitHash} (${message.split("\n")[0]}) but the push failed. The commit is safe in your local history; fix the cause and run /ship again.\n${detail}`,
+      joinBlocks(
+        formatNotice(
+          `Committed ${commitHash} (${message.split("\n")[0]}) but the push failed`,
+          raw ? { output: detail } : undefined,
+        ),
+        raw ? "" : detail,
+        "The commit is safe in your local history; fix the cause and run /ship again.",
+      ),
     );
 
   const plan = pushPlan(destination);
@@ -1190,7 +1211,10 @@ export async function runShip(
         `Do not create another commit.`;
       throw error;
     }
-    throw committed(error instanceof Error ? error.message : String(error));
+    throw committed(
+      error instanceof Error ? error.message : String(error),
+      false,
+    );
   }
   if (push.code !== 0 || push.killed) throw committed(displayOutput(push));
 
@@ -1227,12 +1251,12 @@ export async function runShip(
   // they wait for `/ship verbose`. Housekeeping notices still print, because
   // those are the ones that ask the user to do something.
   ctx.ui.notify(
-    [
-      ...(verbose ? [`Shipped ${pushedHash} to ${target}`] : []),
-      message,
-      ...(verbose ? [`checks: ${checkSummary}`] : []),
-      ...notable,
-    ].join("\n"),
+    joinBlocks(
+      verbose ? `Shipped ${pushedHash} to ${target}.` : "",
+      message.trim(),
+      verbose ? `Checks: ${checkSummary}` : "",
+      notable.length > 0 ? bulletList(notable, notable.length) : "",
+    ),
     "info",
   );
 }
@@ -1299,7 +1323,11 @@ export async function shipCommand(
         resumeAfterConflict = { args, command, forced, ledger };
       }
       ctx.ui.notify(
-        `${command}: rebase conflict; handing resolution to the agent.\n${error.message}`,
+        joinBlocks(
+          `${command}: rebase conflict, handing resolution to the agent.`,
+          error.message,
+          bulletList(error.paths),
+        ),
         "warning",
       );
       pi.sendUserMessage(conflictHandoffPrompt(error, command, handoff.skillPath));
@@ -1307,11 +1335,17 @@ export async function shipCommand(
     }
 
     const message = error instanceof Error ? error.message : String(error);
-    const advice =
+    ctx.ui.notify(
       error instanceof RebaseConflictError
-        ? `${error.paths.length ? `\n${error.paths.join("\n")}` : ""}\n${error.manualAdvice}`
-        : "";
-    ctx.ui.notify(`${command} failed: ${message}${advice}`, "error");
+        ? joinBlocks(
+            `${command} failed.`,
+            message,
+            bulletList(error.paths),
+            error.manualAdvice,
+          )
+        : joinBlocks(`${command} failed.`, message),
+      "error",
+    );
   } finally {
     shipping = false;
   }
