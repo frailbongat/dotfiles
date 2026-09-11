@@ -34,6 +34,16 @@ Cover what a reviewer would miss reading the diff: a control that moved, copy th
 
 One line. `/ship` when all that is left is review and commit. Otherwise name the one action and why.
 
+Check the session for a ticket first: a Linear or Jira key like `ABC-123`, a GitHub issue like `#42` or its URL, or a ticket file or plan I pasted or attached. Judge it from what is already in the session, do not go fetch the tracker.
+
+When there is one, add a second line:
+
+- `Closes ABC-123.` when this response covers every ask in the ticket.
+- `ABC-123 still open: retry path is untested.` when something is left, naming the one gap.
+- `ABC-123 asks for more than this task.` when I only scoped part of it, then name the rest in the same line.
+
+No ticket in the session means no second line. Do not guess an id.
+
 Drop this block only when it would be empty, and say so in one word rather than padding it.
 
 ## Writing quality
