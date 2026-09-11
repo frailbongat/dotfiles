@@ -54,6 +54,7 @@ import {
   type ShipArguments,
 } from "./ship-arguments";
 import { bulletList, formatNotice, joinBlocks } from "./ship-notice";
+import { handOffShipReport } from "./ship-handoff";
 
 export { parseGitHubRepository } from "./ship-repository";
 export { ensureFastForward } from "./ship-git";
@@ -1248,17 +1249,23 @@ export async function runShip(
 
   // Two lines, in the order they get read: where it went, then what went. The
   // check list is bookkeeping nobody reads on a run that worked, so it waits
-  // for `/ship verbose`. Housekeeping notices still print, because those are
-  // the ones that ask the user to do something.
-  ctx.ui.notify(
-    joinBlocks(
-      `Shipped ${pushedHash} to ${target}.`,
-      message.trim(),
-      verbose ? `Checks: ${checkSummary}` : "",
-      notable.length > 0 ? bulletList(notable, notable.length) : "",
-    ),
-    "info",
+  // for `/ship verbose`. Housekeeping notices ride along, because those are the
+  // ones that ask the user to do something.
+  const report = joinBlocks(
+    `Shipped ${pushedHash} to ${target}.`,
+    message.trim(),
+    verbose ? `Checks: ${checkSummary}` : "",
+    notable.length > 0 ? bulletList(notable, notable.length) : "",
   );
+
+  // In Paseo the `paseo-ship-check` plugin draws this report as a card, and a
+  // plugin cannot take the plain line away, so the two stack up saying the same
+  // thing. Handing the text over instead leaves the card alone on the timeline.
+  // Only in RPC mode, and only when the handoff was actually written: a
+  // terminal, and any Paseo without the plugin, still reads the notice.
+  const handedOff =
+    ctx.mode === "rpc" && (await handOffShipReport(report));
+  if (!handedOff) ctx.ui.notify(report, "info");
 }
 
 /**

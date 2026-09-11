@@ -31,7 +31,18 @@ import {
   prepareCache,
   repoWideLabels,
 } from "./ship-quality";
-import { mkdtempSync, existsSync, utimesSync, writeFileSync } from "node:fs";
+import {
+  cardPluginEnabled,
+  handOffShipReport,
+  handoffPath,
+} from "./ship-handoff";
+import {
+  mkdtempSync,
+  existsSync,
+  readFileSync,
+  utimesSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -1042,5 +1053,70 @@ describe("notice formatting", () => {
       "Shipped 9fed34a.\n\nfix: thing",
     );
     expect(formatNotice("Nothing to ship")).toBe("Nothing to ship.");
+  });
+});
+
+describe("paseo card handoff", () => {
+  const AGENT = "4a7c2e3d-77f0-45e4-b883-e15d9a38ba9c";
+
+  /** A Paseo home with `config.json` written, minus the parts under test. */
+  function paseo(config: unknown): NodeJS.ProcessEnv {
+    const home = mkdtempSync(join(tmpdir(), "ship-paseo-"));
+    writeFileSync(join(home, "config.json"), JSON.stringify(config));
+    return { PASEO_HOME: home, PASEO_AGENT_ID: AGENT };
+  }
+
+  const installed = {
+    pluginsEnabled: true,
+    plugins: { "paseo-ship-check": { source: "directory", enabled: true } },
+  };
+
+  it("takes the report when the card plugin is there to draw it", async () => {
+    const env = paseo(installed);
+    expect(await handOffShipReport("Shipped 9fed34a to origin/main.", env)).toBe(
+      true,
+    );
+
+    const written = JSON.parse(readFileSync(handoffPath(env)!, "utf8"));
+    expect(written.text).toBe("Shipped 9fed34a to origin/main.");
+    expect(written.agentId).toBe(AGENT);
+  });
+
+  it("refuses outside Paseo, so a terminal still prints the report", async () => {
+    const env = paseo(installed);
+    expect(handoffPath({ PASEO_HOME: env.PASEO_HOME })).toBeNull();
+    expect(
+      await handOffShipReport("Shipped 9fed34a to origin/main.", {
+        PASEO_HOME: env.PASEO_HOME,
+      }),
+    ).toBe(false);
+  });
+
+  it("refuses when nothing would read the file", async () => {
+    expect(cardPluginEnabled(installed)).toBe(true);
+    expect(cardPluginEnabled({ ...installed, pluginsEnabled: false })).toBe(
+      false,
+    );
+    expect(
+      cardPluginEnabled({
+        pluginsEnabled: true,
+        plugins: { "paseo-ship-check": { enabled: false } },
+      }),
+    ).toBe(false);
+    expect(cardPluginEnabled({ pluginsEnabled: true, plugins: {} })).toBe(false);
+    expect(cardPluginEnabled(undefined)).toBe(false);
+
+    const env = paseo({ pluginsEnabled: true, plugins: {} });
+    expect(await handOffShipReport("Shipped 9fed34a to origin/main.", env)).toBe(
+      false,
+    );
+    expect(existsSync(handoffPath(env)!)).toBe(false);
+  });
+
+  it("refuses when Paseo has no config to read", async () => {
+    const env = { PASEO_HOME: join(tmpdir(), "ship-paseo-absent"), PASEO_AGENT_ID: AGENT };
+    expect(await handOffShipReport("Shipped 9fed34a to origin/main.", env)).toBe(
+      false,
+    );
   });
 });
