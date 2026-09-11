@@ -15,6 +15,7 @@ import {
   outputBlock,
 } from "./ship-notice";
 import { parseShipArguments } from "./ship-arguments";
+import { alert, DEFAULT_ALERT } from "./ship-alert";
 import { resolveGitHubRepository } from "./ship-repository";
 import {
   addClosingIssue,
@@ -32,14 +33,8 @@ import {
   repoWideLabels,
 } from "./ship-quality";
 import {
-  cardPluginEnabled,
-  handOffShipReport,
-  handoffPath,
-} from "./ship-handoff";
-import {
   mkdtempSync,
   existsSync,
-  readFileSync,
   utimesSync,
   writeFileSync,
 } from "node:fs";
@@ -1087,67 +1082,34 @@ describe("notice formatting", () => {
   });
 });
 
-describe("paseo card handoff", () => {
-  const AGENT = "4a7c2e3d-77f0-45e4-b883-e15d9a38ba9c";
 
-  /** A Paseo home with `config.json` written, minus the parts under test. */
-  function paseo(config: unknown): NodeJS.ProcessEnv {
-    const home = mkdtempSync(join(tmpdir(), "ship-paseo-"));
-    writeFileSync(join(home, "config.json"), JSON.stringify(config));
-    return { PASEO_HOME: home, PASEO_AGENT_ID: AGENT };
-  }
-
-  const installed = {
-    pluginsEnabled: true,
-    plugins: { "paseo-ship-check": { source: "directory", enabled: true } },
+describe("terminal alert", () => {
+  const capture = (env: Record<string, string | undefined>) => {
+    const written: string[] = [];
+    const { WT_SESSION, KITTY_WINDOW_ID } = process.env;
+    Object.assign(process.env, env);
+    try {
+      alert(DEFAULT_ALERT, (text) => written.push(text));
+    } finally {
+      process.env.WT_SESSION = WT_SESSION;
+      process.env.KITTY_WINDOW_ID = KITTY_WINDOW_ID;
+    }
+    return written.join("");
   };
 
-  it("takes the report when the card plugin is there to draw it", async () => {
-    const env = paseo(installed);
-    expect(await handOffShipReport("Shipped 9fed34a to origin/main.", env)).toBe(
-      true,
+  it("speaks OSC 777 in the terminals that understand it", () => {
+    expect(capture({ WT_SESSION: undefined, KITTY_WINDOW_ID: undefined })).toBe(
+      "\x1b]777;notify;Pi;Ready for input\x07",
     );
-
-    const written = JSON.parse(readFileSync(handoffPath(env)!, "utf8"));
-    expect(written.text).toBe("Shipped 9fed34a to origin/main.");
-    expect(written.agentId).toBe(AGENT);
   });
 
-  it("refuses outside Paseo, so a terminal still prints the report", async () => {
-    const env = paseo(installed);
-    expect(handoffPath({ PASEO_HOME: env.PASEO_HOME })).toBeNull();
-    expect(
-      await handOffShipReport("Shipped 9fed34a to origin/main.", {
-        PASEO_HOME: env.PASEO_HOME,
-      }),
-    ).toBe(false);
+  it("speaks OSC 99 to Kitty, which understands nothing else", () => {
+    const written = capture({ WT_SESSION: undefined, KITTY_WINDOW_ID: "1" });
+    expect(written).toContain("\x1b]99;i=1:d=0;Pi\x1b\\");
+    expect(written).toContain("\x1b]99;i=1:p=body;Ready for input\x1b\\");
   });
 
-  it("refuses when nothing would read the file", async () => {
-    expect(cardPluginEnabled(installed)).toBe(true);
-    expect(cardPluginEnabled({ ...installed, pluginsEnabled: false })).toBe(
-      false,
-    );
-    expect(
-      cardPluginEnabled({
-        pluginsEnabled: true,
-        plugins: { "paseo-ship-check": { enabled: false } },
-      }),
-    ).toBe(false);
-    expect(cardPluginEnabled({ pluginsEnabled: true, plugins: {} })).toBe(false);
-    expect(cardPluginEnabled(undefined)).toBe(false);
-
-    const env = paseo({ pluginsEnabled: true, plugins: {} });
-    expect(await handOffShipReport("Shipped 9fed34a to origin/main.", env)).toBe(
-      false,
-    );
-    expect(existsSync(handoffPath(env)!)).toBe(false);
-  });
-
-  it("refuses when Paseo has no config to read", async () => {
-    const env = { PASEO_HOME: join(tmpdir(), "ship-paseo-absent"), PASEO_AGENT_ID: AGENT };
-    expect(await handOffShipReport("Shipped 9fed34a to origin/main.", env)).toBe(
-      false,
-    );
+  it("says what pi itself says, so a ship reads like any other turn", () => {
+    expect(DEFAULT_ALERT).toEqual({ title: "Pi", body: "Ready for input" });
   });
 });

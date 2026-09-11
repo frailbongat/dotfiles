@@ -54,7 +54,7 @@ import {
   type ShipArguments,
 } from "./ship-arguments";
 import { bulletList, formatNotice, joinBlocks } from "./ship-notice";
-import { handOffShipReport } from "./ship-handoff";
+import { alert } from "./ship-alert";
 
 export { parseGitHubRepository } from "./ship-repository";
 export { ensureFastForward } from "./ship-git";
@@ -1259,14 +1259,7 @@ export async function runShip(
     notable.length > 0 ? bulletList(notable, notable.length) : "",
   );
 
-  // In Paseo the `paseo-ship-check` plugin draws this report as a card, and a
-  // plugin cannot take the plain line away, so the two stack up saying the same
-  // thing. Handing the text over instead leaves the card alone on the timeline.
-  // Only in RPC mode, and only when the handoff was actually written: a
-  // terminal, and any Paseo without the plugin, still reads the notice.
-  const handedOff =
-    ctx.mode === "rpc" && (await handOffShipReport(report));
-  if (!handedOff) ctx.ui.notify(report, "info");
+  ctx.ui.notify(report, "info");
 }
 
 /**
@@ -1302,6 +1295,9 @@ export async function shipCommand(
   shipping = true;
   resumeAfterConflict = undefined;
   if (!resumed) conflictHandoffs = 0;
+  // A handoff is not an ending: the agent picks the run up and the notification
+  // belongs to whatever finishes after it, not to the pause in the middle.
+  let handedOff = false;
   try {
     const parsed = parseShipArguments(args, command);
     // Absent on the ExtensionContext the resume path arrives with, and
@@ -1325,6 +1321,7 @@ export async function shipCommand(
       conflictHandoffs < MAX_CONFLICT_HANDOFFS
     ) {
       conflictHandoffs += 1;
+      handedOff = true;
       // Only a pre-commit conflict reruns the whole command; after a commit
       // exists the prompt already tells the agent the push is the only step.
       if (!error.afterResolution) {
@@ -1356,6 +1353,9 @@ export async function shipCommand(
     );
   } finally {
     shipping = false;
+    // Only in the TUI: in RPC mode stdout carries the protocol, and the host
+    // there raises its own notification anyway.
+    if (!handedOff && ctx.mode === "tui") alert();
   }
 }
 
