@@ -241,7 +241,8 @@ Body:
 
 Footers:
 - Never invent issue references. If the request says the caller appends one, omit it.
-- Otherwise put an explicitly requested reference last, as Closes #42 or Refs #17.
+- Otherwise an explicitly requested reference ends the subject, as (closes #42)
+  or (refs #17). Never write it as a footer under the body.
 - Breaking changes must include a BREAKING CHANGE: footer.
 
 Never include fluff, first-person narration, emoji, Co-authored-by, or AI attribution.`;

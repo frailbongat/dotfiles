@@ -697,6 +697,24 @@ describe("commit message shape", () => {
     expect(stripUnneededBody(revert)).toBe(revert);
   });
 
+  it("lifts an issue footer out of a body it is allowed to keep", () => {
+    const message = [
+      "feat(api)!: rename /v1/orders to /v1/checkout",
+      "",
+      "BREAKING CHANGE: clients must migrate before 2026-06-01.",
+      "",
+      "Closes #42",
+    ].join("\n");
+
+    expect(stripUnneededBody(message)).toBe(
+      [
+        "feat(api)!: rename /v1/orders to /v1/checkout (closes #42)",
+        "",
+        "BREAKING CHANGE: clients must migrate before 2026-06-01.",
+      ].join("\n"),
+    );
+  });
+
   it("lifts an issue footer into the subject when the body goes", () => {
     const message = [
       "fix(auth): stop refreshing an expired session",
@@ -720,21 +738,34 @@ describe("commit message shape", () => {
     expect(validateCommitMessage(added.ok ? added.message : "").ok).toBe(true);
   });
 
-  it("uses a footer when the message kept a body", () => {
+  it("keeps the reference on the subject of a message with a body", () => {
     const added = addClosingIssue(
       "feat(api)!: drop /v1/orders\n\nBREAKING CHANGE: migrate to /v1/checkout.",
       "42",
     );
-    expect(added.ok && added.message.endsWith("\n\nCloses #42")).toBe(true);
+    expect(added).toEqual({
+      ok: true,
+      message: [
+        "feat(api)!: drop /v1/orders (closes #42)",
+        "",
+        "BREAKING CHANGE: migrate to /v1/checkout.",
+      ].join("\n"),
+    });
   });
 
-  it("moves the issue to a footer rather than pushing the subject past 72", () => {
-    // 63 characters, legal on its own; ` (closes #51)` would make it 76.
-    const subject = "refactor(experience): reach the calendar without a pointer x";
+  it("drops words rather than push the reference into a footer", () => {
+    // 65 characters, legal on its own; ` (closes #51)` would make it 78.
+    const subject =
+      "refactor(experience): reach the calendar without a pointer at all";
     expect(validateCommitMessage(subject).ok).toBe(true);
 
     const added = addClosingIssue(subject, "51");
-    expect(added).toEqual({ ok: true, message: `${subject}\n\nCloses #51` });
+    expect(added).toEqual({
+      ok: true,
+      message:
+        "refactor(experience): reach the calendar without a pointer (closes #51)",
+    });
+    expect(validateCommitMessage(added.ok ? added.message : "").ok).toBe(true);
   });
 });
 

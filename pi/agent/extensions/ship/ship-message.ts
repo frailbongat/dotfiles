@@ -274,43 +274,63 @@ export function validateCommitMessage(raw: string): ValidationResult {
 }
 
 /**
+ * Puts an issue reference on the subject line, buying the room it needs by
+ * dropping words off the summary.
+ *
+ * The reference always rides the subject, because that is the line every log,
+ * blame, and pull request title shows, and a footer hides it behind a body the
+ * message did not otherwise need. Losing a word of summary is the cheaper loss.
+ */
+export function inlineReference(subject: string, reference: string): string {
+  const [verb, number] = reference.split(" ");
+  const suffix = ` (${verb!.toLowerCase()} ${number})`;
+  return `${shortenSubject(subject, SUBJECT_LIMIT - lineLength(suffix))}${suffix}`;
+}
+
+/**
  * Drops a body the message was not entitled to.
  *
  * The model is told to send a subject and nothing else, and it still writes the
  * diff back as bullets often enough that asking again is the wrong fix: a
  * second round trip costs more than the body is worth. So the body is kept only
  * where its absence is a real loss, and thrown away everywhere else. An issue
- * footer written into a body that is about to be dropped moves up into the
- * subject rather than disappearing with it.
+ * footer moves up into the subject either way: the body it was written under is
+ * about to be dropped, or it is a body about a breaking change that has no
+ * business hiding the ticket.
  */
 export function stripUnneededBody(message: string): string {
   const lines = message.split("\n");
   const subject = lines[0] ?? "";
   if (lines.length < 3) return message;
 
-  const breaking = /!:/.test(subject) || /^BREAKING CHANGE: /m.test(message);
-  if (breaking || /^revert\b/i.test(subject)) return message;
-
   const reference = message
     .slice(subject.length)
     .match(/^(?:Closes|Fixes|Refs) #\d+$/im)?.[0];
-  if (!reference) return subject;
 
-  const [verb, number] = reference.split(" ");
-  const inline = `${subject} (${verb!.toLowerCase()} ${number})`;
-  return lineLength(inline) <= SUBJECT_LIMIT
-    ? inline
-    : `${subject}\n\n${reference}`;
+  const breaking = /!:/.test(subject) || /^BREAKING CHANGE: /m.test(message);
+  if (breaking || /^revert\b/i.test(subject)) {
+    if (!reference) return message;
+    const body = lines
+      .slice(2)
+      .filter((line) => line !== reference)
+      .join("\n")
+      .trim();
+    const lifted = inlineReference(subject, reference);
+    return body ? `${lifted}\n\n${body}` : lifted;
+  }
+
+  if (!reference) return subject;
+  return inlineReference(subject, reference);
 }
 
 /**
- * The reference goes in the subject, because the subject is the whole message
- * in the ordinary case and a lone footer would force a body that says nothing.
- * A message that earned a body gets the footer form instead, and so does a
- * subject the suffix would push past 72: the model wrote a legal subject, and
- * refusing it over a suffix the caller chose to add is the caller's bug, not
- * the model's. `stripUnneededBody` has made the same choice for as long as it
- * has existed.
+ * The reference goes in the subject, always, because the subject is the whole
+ * message in the ordinary case and a footer would hide the ticket behind a body
+ * that says nothing. A subject the suffix would push past 72 loses words to
+ * `shortenSubject` instead of losing the reference, and a message that earned a
+ * body keeps the body with the reference still on line one. The footer form is
+ * left only for the subject no shortening can save, where a valid message beats
+ * a ship that refuses to happen.
  */
 export function addClosingIssue(
   raw: string,
@@ -325,11 +345,14 @@ export function addClosingIssue(
     };
   }
 
-  const inline = `${validation.message} (closes #${issueNumber})`;
-  const fitsInline =
-    !validation.message.includes("\n") && lineLength(inline) <= SUBJECT_LIMIT;
+  const lines = validation.message.split("\n");
+  const subject = inlineReference(lines[0] ?? "", `closes #${issueNumber}`);
+  const rest = lines.slice(1).join("\n");
 
-  return validateCommitMessage(
-    fitsInline ? inline : `${validation.message}\n\nCloses #${issueNumber}`,
-  );
+  const inlined = validateCommitMessage(rest ? `${subject}\n${rest}` : subject);
+  return inlined.ok
+    ? inlined
+    : validateCommitMessage(
+        `${validation.message}\n\nCloses #${issueNumber}`,
+      );
 }
