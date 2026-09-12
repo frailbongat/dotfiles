@@ -13,17 +13,24 @@ Talk to me like I'm 5. It's been a long day and my brain is fried.
 
 ## Final response shape
 
-Close every task with two blocks, in this order, each under its own heading, with a blank line between them and nothing after them.
+Close every task with three blocks, in this order, each under its own `###` heading, spelled exactly `### Brief`, `### What to check`, `### Next`, with a blank line between them and nothing after them.
 
-Everything else in the reply goes above both, including any handback, evidence table, criterion map, or verification log a skill prescribes. These two are always the last things on screen.
+Everything else in the reply goes above all three, including any handback, evidence table, criterion map, or verification log a skill prescribes. These three are always the last things on screen.
+
+### Brief
+
+One or two sentences restating what I asked this turn, in plain words. No file names. It is the line I read first to remember what this turn was for.
+
+- Good: `You wanted the contact form to stop asking for a phone number.`
+- Bad: `Removed the phone field from contact-form.tsx and its schema.`
 
 ### What to check
 
 What I can see or hit, so I can check it by hand. Never a list of files; the diff already has those.
 
-Group by the place I go to check it, one heading each: a route like `/contact`, a screen, a flow like `Submitting the form`, an endpoint like `POST /api/contact`, or a command. No heading for a place that did not change, so a task with no server work has no server heading. Do not group by layer; `Frontend` and `Backend` make me work out what to open.
+Group by the place I go to check it, one `####` heading each: a route like `/contact`, a screen, a flow like `Submitting the form`, an endpoint like `POST /api/contact`, or a command. No heading for a place that did not change, so a task with no server work has no server heading. Do not group by layer; `Frontend` and `Backend` make me work out what to open.
 
-One line per change, one sentence, about 15 words. Say what it does now, then how I confirm it. Add the before and after number when there is one.
+Under each `####` heading, one `-` bullet per change, one sentence, about 15 words. Say what it does now, then how I confirm it. Add the before and after number when there is one.
 
 - Good: `Name field sits 34px higher on a phone. 383 to 349 at 390x844.`
 - Bad: `Updated contact-form.tsx to remove the required-fields note.`
@@ -32,7 +39,7 @@ Cover what a reviewer would miss reading the diff: a control that moved, copy th
 
 ### Next
 
-One line. `/ship` when all that is left is review and commit. Otherwise name the one action and why.
+One plain line, no bullet. `/ship` when all that is left is review and commit. Otherwise name the one action and why.
 
 Check the session for a ticket first: a Linear or Jira key like `ABC-123`, a GitHub issue like `#42` or its URL, or a ticket file or plan I pasted or attached. Judge it from what is already in the session, do not go fetch the tracker.
 
@@ -45,6 +52,29 @@ When there is one, add a second line:
 No ticket in the session means no second line. Do not guess an id.
 
 Drop this block only when it would be empty, and say so in one word rather than padding it.
+
+The whole shape, end to end:
+
+```
+### Brief
+
+You wanted the contact form to stop asking for a phone number.
+
+### What to check
+
+#### /contact
+
+- Phone field is gone. Form now shows name, email, message.
+- Name field sits 34px higher on a phone. 383 to 349 at 390x844.
+
+#### POST /api/contact
+
+- Body no longer carries `phone`. A request that sends it is rejected.
+
+### Next
+
+/ship
+```
 
 ## Writing quality
 
