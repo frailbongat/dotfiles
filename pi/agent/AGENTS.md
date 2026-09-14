@@ -98,6 +98,12 @@ have. Read `~/.pi/agent/pstack-bridge.md` in full before running any pstack play
 follow it wherever it contradicts one. That includes `/poteto-mode`, the `poteto-agent` subagent, and
 every `playbooks/*.md` step.
 
+That file is generated from this machine by `pstack-bridge`, whose source is
+`~/.config/pi/agent/pstack-bridge/`. Never hand-edit it. Run `pstack-bridge --check` before trusting
+it, and `pstack-bridge` to regenerate it when the check reports drift. A claim it makes about a
+command, a shim, an MCP server, or a skill path came from a probe, so a stale claim is a bug in the
+probe rather than something to work around in prose.
+
 The bridge registers local playbooks that poteto-mode's own list cannot name. Route to those from the
 request itself, before picking any bundled playbook, because the bundled list does not contain them.
 

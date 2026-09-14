@@ -1,3 +1,10 @@
+---
+name: Design
+description: "Visual and interaction design of a frontend surface. A new page or component, a redesign, a look that is bland, loud, or templated, or a UI that needs typography, color, layout, or motion decided rather than debugged. Each skill builds three variants side by side, the user picks one and iterates it, the losers get deleted. Resolves the three skills' overlap."
+outranks: "Feature, Visual parity, Prototype, and figure-it-out whenever the deliverable is how a surface looks or feels"
+command: /design
+---
+
 ### Design
 
 **You own the direction. The three skills own the craft.** Never run two of them on the same decision.
