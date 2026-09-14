@@ -93,6 +93,28 @@ same rubric and the same skeptical posture.
 Drive browsers through the `playwright-cli` skill with `--browser=firefox`. Never Chrome or Chromium
 without asking. To show the user a page, run `open "<url>"` instead of automating a browser.
 
+## Skills the system prompt does not list
+
+Most pstack skills set `disable-model-invocation: true`, so they never appear in the available-skills
+list even though they are installed. A name missing from that list is not a missing skill. Invoke one
+as `/skill:<name>`, or read it by absolute path when a delegate brief needs it, because a delegate
+cannot run a slash command. They live at
+`~/.pi/agent/npm/node_modules/@zenspc/pi-pstack/skills/<name>/SKILL.md`.
+
+`deslop` is the one the playbooks name most, and it is installed at
+`~/.pi/agent/npm/node_modules/@zenspc/pi-pstack/skills/deslop/SKILL.md`. Two corrections for this
+machine:
+
+- It scopes itself to "the diff against main" and to slop "introduced in the branch". Work here sits
+  uncommitted on `main`, so scope it to the working tree instead: `git diff` plus the untracked files
+  in `git status --short`. Never `git diff main`, which is empty here.
+- It owns code slop, meaning stray comments, defensive branches, `any` casts, and needless nesting.
+  `unslop` owns prose. A step naming both wants both, run over the same diff.
+
+`unslop` exists twice, in the package and at `~/.agents/skills/unslop/SKILL.md`. Discovery keeps the
+second, which is the one `AGENTS.md` names, so `/skill:unslop` and that path agree. The package copy is
+an older, shorter version and is shadowed.
+
 ## Local playbooks the skill list does not name
 
 poteto-mode's playbook list ships inside the npm package and an update overwrites it. Local playbooks
