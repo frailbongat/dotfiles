@@ -98,6 +98,15 @@ have. Read `~/.pi/agent/pstack-bridge.md` in full before running any pstack play
 follow it wherever it contradicts one. That includes `/poteto-mode`, the `poteto-agent` subagent, and
 every `playbooks/*.md` step.
 
+The bridge registers local playbooks that poteto-mode's own list cannot name. Route to those from the
+request itself, before picking any bundled playbook, because the bundled list does not contain them.
+
+- **Design.** Any request to design or redesign how a frontend surface looks or feels: a new page or
+  component, a redesign, a look that is bland, loud, or templated, or a UI needing typography, color,
+  layout, or motion decided rather than debugged. Run `~/.pi/agent/pstack/playbooks/design.md`. It
+  outranks Feature, Visual parity, Prototype, and figure-it-out. A short request like "redesign the X
+  page" is a full match, not a casual turn, so it never skips to implementation.
+
 ## Browsers
 
 Drive browsers with the `playwright-cli` skill at `/Users/frailbongat/.claude/skills/playwright-cli/SKILL.md`. Load it before any browser task. The `playwright` MCP server is disabled in `~/.config/mcp/mcp.json`; do not re-enable it or call `mcp__playwright`.
