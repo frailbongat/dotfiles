@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "roles": {
+    "feature, refactoring": "cliproxyapi/claude-opus-5:xhigh",
+    "bug-fix": "cliproxyapi/claude-fable-5-1:xhigh",
+    "perf-issue": "cliproxyapi/claude-fable-5-1:xhigh",
+    "hillclimb": "cliproxyapi/claude-fable-5-1:xhigh",
+    "judgment and prose": "cliproxyapi/claude-opus-5:max",
+    "hardest tasks": "cliproxyapi/claude-fable-5-1:max",
+    "how explorer": "cliproxyapi/claude-opus-5:high",
+    "how explainer": "cliproxyapi/claude-opus-5:max",
+    "why investigators": "cliproxyapi/claude-opus-5:high",
+    "why synthesizer": "cliproxyapi/claude-opus-5:max",
+    "reflect tooling": "cliproxyapi/claude-opus-5:max",
+    "reflect judgment, divergent, synthesizer": "cliproxyapi/claude-opus-5:max",
+    "arena runners": [
+      "cliproxyapi/claude-opus-5:max",
+      "cliproxyapi/claude-fable-5-1:xhigh",
+      "cliproxyapi/claude-sonnet-5:xhigh"
+    ],
+    "arena cross-judge pool": [
+      "cliproxyapi/claude-opus-5:max",
+      "cliproxyapi/claude-fable-5-1:xhigh",
+      "cliproxyapi/claude-sonnet-5:xhigh"
+    ],
+    "swarm workers": "cliproxyapi/claude-opus-5:high",
+    "architect runners": [
+      "cliproxyapi/claude-opus-5:max",
+      "cliproxyapi/claude-fable-5-1:xhigh",
+      "cliproxyapi/claude-sonnet-5:xhigh"
+    ],
+    "interrogate reviewers": [
+      "cliproxyapi/claude-opus-5:max",
+      "cliproxyapi/claude-fable-5-1:xhigh",
+      "cliproxyapi/claude-sonnet-5:xhigh"
+    ]
+  },
+  "skillsEnabled": true
+}

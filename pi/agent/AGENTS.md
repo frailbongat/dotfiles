@@ -91,6 +91,13 @@ Always in effect, no loading needed:
 - Sentence case headings. No decorative emojis. No bolding every noun.
 - Active voice. Name the actor.
 
+## pstack
+
+pstack was ported from a Cursor plugin, so its playbooks name tools and services this machine does not
+have. Read `~/.pi/agent/pstack-bridge.md` in full before running any pstack playbook or skill, and
+follow it wherever it contradicts one. That includes `/poteto-mode`, the `poteto-agent` subagent, and
+every `playbooks/*.md` step.
+
 ## Browsers
 
 Drive browsers with the `playwright-cli` skill at `/Users/frailbongat/.claude/skills/playwright-cli/SKILL.md`. Load it before any browser task. The `playwright` MCP server is disabled in `~/.config/mcp/mcp.json`; do not re-enable it or call `mcp__playwright`.
