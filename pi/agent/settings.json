@@ -5,9 +5,9 @@
   "defaultModel": "claude-opus-5",
   "defaultThinkingLevel": "high",
   "enabledModels": [
-    "openai-codex/gpt-5.6-sol",
     "cliproxyapi/claude-opus-5",
-    "cliproxyapi/claude-fable-5"
+    "cliproxyapi/claude-fable-5-1",
+    "cliproxyapi/claude-sonnet-5"
   ],
   "skills": [
     "~/.claude/skills"
@@ -20,6 +20,8 @@
       "extensions": [
         "!tps.ts"
       ]
-    }
+    },
+    "npm:pi-subagents",
+    "npm:@zenspc/pi-pstack"
   ]
 }
