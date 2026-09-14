@@ -53,3 +53,9 @@ alt - z: ~/.config/skhd/jump.sh '^Code$' 'Visual Studio Code'
 # alt - a: open -a 'Seanime Denshi'
 alt - 5: ~/.config/skhd/follow.sh '^PS Remote Play$' 'PS Remote Play'
 alt - p : yabai -m window --toggle float
+
+# fullscreen
+# fullscreen.sh: zoom-fullscreen for tiled windows, a fill-the-display resize
+#               for floating and manage=off ones, which yabai's zoom ignores
+alt - f: ~/.config/skhd/fullscreen.sh
+cmd + alt - f: yabai -m window --toggle native-fullscreen
