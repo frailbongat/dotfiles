@@ -121,11 +121,16 @@ poteto-mode's playbook list ships inside the npm package and an update overwrite
 live in `~/.pi/agent/pstack/playbooks/` instead and are registered here. Match them the same way, and
 prefer the local one when both fit.
 
+Match this list before the bundled one, not after. poteto-mode's Playbooks section cannot name these, so
+a task that fits one here would otherwise fall through to a bundled playbook or to figure-it-out, which
+is the wrong answer rather than a near miss.
+
 - **Design.** Visual and interaction design of a frontend surface: a new page or component, a
   redesign, a look that is bland, loud, or templated, or a UI that needs typography, color, layout, or
   motion decided rather than debugged. Each skill builds three variants side by side, the user picks
   one and iterates it, the losers get deleted. Resolves the three skills' overlap.
-  `~/.pi/agent/pstack/playbooks/design.md`.
+  `~/.pi/agent/pstack/playbooks/design.md`. It outranks Feature, Visual parity, Prototype, and
+  figure-it-out whenever the deliverable is how a surface looks or feels. `/design` runs it directly.
 
 ## Git authority beats every playbook
 
