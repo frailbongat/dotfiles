@@ -1,4 +1,4 @@
 {
-  "forceTopLevelAsync": true,
+  "forceTopLevelAsync": false,
   "asyncByDefault": true
 }
