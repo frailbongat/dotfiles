@@ -93,6 +93,18 @@ same rubric and the same skeptical posture.
 Drive browsers through the `playwright-cli` skill with `--browser=firefox`. Never Chrome or Chromium
 without asking. To show the user a page, run `open "<url>"` instead of automating a browser.
 
+## Local playbooks the skill list does not name
+
+poteto-mode's playbook list ships inside the npm package and an update overwrites it. Local playbooks
+live in `~/.pi/agent/pstack/playbooks/` instead and are registered here. Match them the same way, and
+prefer the local one when both fit.
+
+- **Design.** Visual and interaction design of a frontend surface: a new page or component, a
+  redesign, a look that is bland, loud, or templated, or a UI that needs typography, color, layout, or
+  motion decided rather than debugged. Each skill builds three variants side by side, the user picks
+  one and iterates it, the losers get deleted. Resolves the three skills' overlap.
+  `~/.pi/agent/pstack/playbooks/design.md`.
+
 ## Git authority beats every playbook
 
 `~/.pi/agent/AGENTS.md` wins. A playbook runs until the diff is ready to review, then stops. Do not
