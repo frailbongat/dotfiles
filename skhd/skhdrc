@@ -25,8 +25,8 @@ shift + cmd - l: yabai -m window --warp east
 
 # app shortcuts
 ctrl - b: open -a 'Zen'
-ctrl - c: open -a 'Codex'
-ctrl - d: open -a 'Legcord'
+ctrl - c: open -a 'Paseo'
+ctrl - d: open -a 'Beeper Desktop'
 ctrl - e: open -a 'Spark Desktop'
 ctrl + shift - f: open -a 'Figma'
 ctrl - h: open -a 'Hoppscotch'
