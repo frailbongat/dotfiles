@@ -51,7 +51,7 @@ for i = 1, 10, 1 do
   end)
 end
 
-local spaces_bracket = sbar.add("bracket", {
+local spaces_bracket = sbar.add("bracket", "spaces.bracket", {
   'space.1', 'space.2', 'space.3', 'space.4', 'space.5', 'space.6', 'space.7', 'space.8', 'space.9', 'space.10'
 }, {
   background = {
@@ -59,12 +59,15 @@ local spaces_bracket = sbar.add("bracket", {
   },
 })
 
-local space_window_observer = sbar.add("item", {
+local space_window_observer = sbar.add("item", "space_window_observer", {
   drawing = false,
   updates = true,
 })
 
 space_window_observer:subscribe("space_windows_change", function(env)
+  local space = spaces[tonumber(env.INFO.space)]
+  if space == nil then return end
+
   local icon_line = ""
   local no_app = true
   for app, count in pairs(env.INFO.apps) do
@@ -78,6 +81,6 @@ space_window_observer:subscribe("space_windows_change", function(env)
     icon_line = " —"
   end
   sbar.animate("tanh", 10, function()
-    spaces[env.INFO.space]:set({ label = icon_line })
+    space:set({ label = icon_line })
   end)
 end)
