@@ -1,21 +1,21 @@
 # focus space
-alt - 1: yabai -m space --focus 1
-alt - 2: yabai -m space --focus 2
-alt - 3: yabai -m space --focus 3
-alt - 4: yabai -m space --focus 4
-alt - 5: yabai -m space --focus 5
+ctrl - 1: yabai -m space --focus 1
+ctrl - 2: yabai -m space --focus 2
+ctrl - 3: yabai -m space --focus 3
+ctrl - 4: yabai -m space --focus 4
+ctrl - 5: yabai -m space --focus 5
 
 # focus window
-alt - i: yabai -m window --focus north
-alt - j: yabai -m window --focus west
-alt - k: yabai -m window --focus south
-alt - l: yabai -m window --focus east
+ctrl - i: yabai -m window --focus north
+ctrl - j: yabai -m window --focus west
+ctrl - k: yabai -m window --focus south
+ctrl - l: yabai -m window --focus east
 
 # swap managed window
-shift + alt - i: yabai -m window --swap north
-shift + alt - j: yabai -m window --swap west
-shift + alt - k: yabai -m window --swap south
-shift + alt - l: yabai -m window --swap east
+shift + ctrl - i: yabai -m window --swap north
+shift + ctrl - j: yabai -m window --swap west
+shift + ctrl - k: yabai -m window --swap south
+shift + ctrl - l: yabai -m window --swap east
 
 # move managed window
 shift + cmd - i: yabai -m window --warp north
@@ -24,16 +24,16 @@ shift + cmd - k: yabai -m window --warp south
 shift + cmd - l: yabai -m window --warp east
 
 # app shortcuts
-alt - b: open -a 'Zen Browser'
-alt - c: open -a 'Visual Studio Code'
-alt - d: open -a 'Legcord'
-alt - e: open -a 'Spark Desktop'
-alt - f: open -a 'Figma'
-alt - h: open -a 'Hoppscotch'
-alt - m: open -a 'Spotify'
-alt - n: open -a 'Messenger'
-alt - o: open -a 'Obsidian'
-alt - r: open -a 'Raindrop.io.app'
-alt - s: open -a 'Slack'
-alt - t: open -a 'TickTick'
-alt - z: open -a 'iTerm'
+ctrl - b: open -a 'Zen'
+ctrl - c: open -a 'Codex'
+ctrl - d: open -a 'Legcord'
+ctrl - e: open -a 'Spark Desktop'
+ctrl + shift - f: open -a 'Figma'
+ctrl - h: open -a 'Hoppscotch'
+ctrl - m: open -a 'Spotify'
+ctrl - n: open -a 'Messenger'
+ctrl - o: open -a 'Obsidian'
+ctrl - r: open -a 'Raindrop.io.app'
+ctrl - s: open -a 'Slack'
+ctrl - t: open -a 'TickTick'
+ctrl - z: open -a 'Zed'
