@@ -48,21 +48,43 @@ LOCAL
   chmod 600 "$HOME/.gitconfig.local"
 fi
 
-# 5. pi config -> symlinks into ~/.pi/agent. Auth and history stay local.
+# 5. pi config -> its own repo, cloned to ~/.pi.
+#    This repo used to hold it under pi/agent/ and symlink it into place. That
+#    copy was removed on 2026-09-15 and frailbongat/pi-config replaced it. The
+#    old symlinks left one machine running config frozen at 2026-09-14, so this
+#    step now moves a stale ~/.pi aside instead of leaving it to rot.
+#
 #    mcp/mcp.json is already in place at ~/.config/mcp/mcp.json, which is
 #    pi's highest-precedence global MCP config. Nothing to link.
-info "Linking pi config"
-mkdir -p "$HOME/.pi/agent"
-for src in "$CONFIG"/pi/agent/*; do
-  [ -e "$src" ] || continue
-  dest="$HOME/.pi/agent/$(basename "$src")"
-  if [ -e "$dest" ] && [ ! -L "$dest" ]; then
-    mv "$dest" "$dest.backup-$(date +%Y%m%d%H%M%S)"
-    echo "    backed up existing $dest"
+if [ -d "$HOME/.pi/.git" ]; then
+  info "pi config already a git checkout at ~/.pi"
+else
+  if [ -e "$HOME/.pi" ]; then
+    backup="$HOME/.pi.backup-$(date +%Y%m%d%H%M%S)"
+    mv "$HOME/.pi" "$backup"
+    info "Backed up pre-repo ~/.pi to $backup"
   fi
-  ln -sfn "$src" "$dest"
-  echo "    $dest"
-done
+  info "Cloning pi config into ~/.pi"
+  # pi-config is private, so this needs gh auth or a git credential helper.
+  if command -v gh >/dev/null 2>&1; then
+    gh repo clone frailbongat/pi-config "$HOME/.pi"
+  else
+    git clone https://github.com/frailbongat/pi-config.git "$HOME/.pi"
+  fi
+  if [ -n "${backup:-}" ]; then
+    for f in agent/auth.json agent/cliproxyapi.json agent/trust.json; do
+      [ -f "$backup/$f" ] || continue
+      mkdir -p "$(dirname "$HOME/.pi/$f")"
+      cp "$backup/$f" "$HOME/.pi/$f"
+      echo "    restored $f"
+    done
+  fi
+fi
+
+# ~/.pi/setup.sh links extension dependencies and clones the skills repo.
+# Both are gitignored in pi-config, so the clone alone leaves /ship broken.
+info "Running pi setup"
+"$HOME/.pi/setup.sh"
 
 # 6. Agent skills library -> ~/.agents. Separate repo, read by pi and other agents.
 if [ -d "$HOME/.agents/.git" ]; then

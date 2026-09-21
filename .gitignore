@@ -15,7 +15,6 @@
 !/yabai/
 !/skhd/
 !/sketchybar/
-!/pi/
 !/.vscode/
 !/mcp/
 !/home/
@@ -27,25 +26,11 @@
 *.local
 
 # ============================================================
-# pi: config only. Auth, chat history, and caches stay local.
+# pi lives in frailbongat/pi-config, cloned to ~/.pi. It is not here.
+# /pi/ stays off the whitelist above on purpose. Re-adding it would give
+# pi two sources of truth again, which is how one machine ended up running
+# config from 2026-09-14 for a month.
 # ============================================================
-/pi/agent/auth.json
-/pi/agent/cliproxyapi.json
-/pi/agent/cliproxyapi-models.json
-/pi/agent/models-store.json
-/pi/agent/mcp-cache.json
-/pi/agent/mcp-npx-cache.json
-/pi/agent/mcp-onboarding.json
-/pi/agent/trust.json
-/pi/agent/run-history.jsonl
-/pi/agent/sessions/
-/pi/agent/missions/
-/pi/agent/tmp/
-/pi/agent/npm/
-/pi/agent/bin/
-/pi/context-mode/
-/pi/workbench/
-/pi/web-search-cache/
 
 # ============================================================
 # Paseo: portable config templates only. The live ~/.paseo is never

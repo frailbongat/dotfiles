@@ -12,8 +12,9 @@ git clone https://github.com/frailbongat/dotfiles.git ~/.config
 ~/.config/install.sh
 ```
 
-`install.sh` also clones [frailbongat/agents](https://github.com/frailbongat/agents) into `~/.agents`
-for your agent skills.
+`install.sh` also clones two repos it does not own:
+[frailbongat/agents](https://github.com/frailbongat/agents) into `~/.agents` for vendored skills, and
+[frailbongat/pi-config](https://github.com/frailbongat/pi-config) into `~/.pi` for the pi agent config.
 
 ## What is tracked
 
@@ -22,7 +23,6 @@ for your agent skills.
 | `yabai/` | Tiling window manager rules |
 | `skhd/` | Global keyboard shortcuts |
 | `sketchybar/` | Menu bar replacement. Lua config plus C helpers you compile with `make`. |
-| `pi/agent/` | pi agent: `AGENTS.md`, `settings.json`, `models.json`, `extensions/`, `prompts/`, `themes/`. Symlinked into `~/.pi/agent`. |
 | `.vscode/` | VS Code settings and extension list |
 | `home/` | Files that belong in `~`: `.zshrc`, `.zprofile`, `.gitconfig`, `.p10k.zsh`. Symlinked out by `install.sh`. |
 | `mcp/mcp.json` | Global MCP servers. This is pi's highest-precedence MCP config. |
@@ -54,32 +54,26 @@ Use a GitHub noreply address so your real email never appears in a commit:
 gh api user --jq '"\(.id)+\(.login)@users.noreply.github.com"'
 ```
 
-## pi, specifically
+## pi moved out of this repo
 
-Tracked, because it is config:
+pi config used to live here under `pi/agent/`, symlinked into `~/.pi/agent` by `install.sh`.
+Commit `b61f248` removed it on 2026-09-15, and
+[frailbongat/pi-config](https://github.com/frailbongat/pi-config) replaced it the next day. That repo
+is `~/.pi` itself, so there is nothing left to symlink.
 
-```
-pi/agent/AGENTS.md                 global agent instructions
-pi/agent/settings.json             theme, default model, packages
-pi/agent/models.json               custom model definitions
-pi/agent/cliproxyapi-models.json   model catalog
-pi/agent/extensions/               your TS extensions
-pi/agent/prompts/                  prompt templates
-pi/agent/themes/                   color themes
-```
+The split cost me a day of debugging, so it is worth stating why. A machine set up before the move
+kept working, because its symlinks still pointed at a real directory in an old checkout. It just
+never saw another update. Two weeks later `/ship refs` failed there with `Unrecognized argument
+"refs"` while the same command worked here. Nothing looked broken, the files simply matched a
+source that had been retired.
 
-Never tracked, because it is secret or private:
+So `install.sh` no longer symlinks anything into `~/.pi`. It clones the repo, and moves a
+pre-repo `~/.pi` to `~/.pi.backup-<timestamp>` first, carrying over `auth.json`,
+`cliproxyapi.json`, and `trust.json`. Then it runs `~/.pi/setup.sh`, which links extension
+dependencies and clones [frailbongat/skills](https://github.com/frailbongat/skills) into `~/skills`.
 
-```
-pi/agent/auth.json                 provider API keys
-pi/agent/cliproxyapi.json          proxy API key
-pi/agent/sessions/                 every chat you have had
-pi/agent/missions/                 task history
-pi/agent/run-history.jsonl         command history
-pi/agent/npm/  bin/  tmp/          downloaded packages and binaries
-pi/agent/models-store.json         rebuilt on launch
-pi/agent/mcp-cache.json            rebuilt on launch
-```
+To fix a machine still on the old layout, run `~/.config/install.sh` again. It detects that `~/.pi`
+is not a git checkout and does the swap.
 
 ## MCP
 
