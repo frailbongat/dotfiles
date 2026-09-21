@@ -17,3 +17,4 @@ if hasBattery() then
 end
 require("items.widgets.volume")
 require("items.widgets.cpu")
+require("items.widgets.cpu_remote")
