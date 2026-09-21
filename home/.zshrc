@@ -141,3 +141,4 @@ export VISUAL="$EDITOR"
 
 # opencode
 export PATH=/Users/frailbongat/.opencode/bin:$PATH
+export PATH="$HOME/bin:$PATH"
