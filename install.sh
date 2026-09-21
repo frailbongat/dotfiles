@@ -8,6 +8,7 @@ CONFIG="$HOME/.config"
 cd "$CONFIG"
 
 info() { printf '\033[1;34m==>\033[0m %s\n' "$1"; }
+warn() { printf '\033[1;33m!!\033[0m  %s\n' "$1"; }
 
 # 1. Homebrew
 if ! command -v brew >/dev/null 2>&1; then
@@ -86,16 +87,28 @@ fi
 info "Running pi setup"
 "$HOME/.pi/setup.sh"
 
-# 6. Agent skills library -> ~/.agents. Separate repo, read by pi and other agents.
-if [ -d "$HOME/.agents/.git" ]; then
-  info "Agent skills already present at ~/.agents"
-elif [ -e "$HOME/.agents" ]; then
-  mv "$HOME/.agents" "$HOME/.agents.backup-$(date +%Y%m%d%H%M%S)"
-  info "Backed up existing ~/.agents, cloning agent skills"
-  git clone https://github.com/frailbongat/agents.git "$HOME/.agents"
+# 6. Agent skills -> ~/skills, which installs them into ~/.agents and friends.
+#    ~/.agents is a destination, not a repo. Nothing there is mine: 20 skills
+#    come from the Skills CLI, 6 from the Paseo app, 2 are symlinks into
+#    ~/skills. frailbongat/agents used to vendor copies of other people's work
+#    here, which went stale the moment upstream moved. bootstrap.sh installs
+#    each one from its own source instead, off reference-skill-lock.json.
+#
+#    Step 5 already cloned ~/skills via ~/.pi/setup.sh. Clone it here too, so
+#    this step still works if pi is not on the machine.
+if [ -d "$HOME/skills/.git" ]; then
+  info "Skills repo already at ~/skills"
 else
-  info "Cloning agent skills into ~/.agents"
-  git clone https://github.com/frailbongat/agents.git "$HOME/.agents"
+  info "Cloning skills into ~/skills"
+  git clone https://github.com/frailbongat/skills.git "$HOME/skills"
+fi
+info "Installing agent skills"
+# Needs npx for the third-party skills. --skip-managed installs only my own.
+if command -v npx >/dev/null 2>&1; then
+  "$HOME/skills/bootstrap.sh"
+else
+  warn "npx not found, installing only my own skills"
+  "$HOME/skills/bootstrap.sh" --skip-managed
 fi
 
 # 7. macOS defaults

@@ -12,9 +12,10 @@ git clone https://github.com/frailbongat/dotfiles.git ~/.config
 ~/.config/install.sh
 ```
 
-`install.sh` also clones two repos it does not own:
-[frailbongat/agents](https://github.com/frailbongat/agents) into `~/.agents` for vendored skills, and
-[frailbongat/pi-config](https://github.com/frailbongat/pi-config) into `~/.pi` for the pi agent config.
+`install.sh` also clones two repos that are not this one:
+[frailbongat/pi-config](https://github.com/frailbongat/pi-config) into `~/.pi` for the pi agent config,
+and [frailbongat/skills](https://github.com/frailbongat/skills) into `~/skills`, whose `bootstrap.sh`
+installs every agent skill.
 
 ## What is tracked
 
@@ -33,12 +34,23 @@ Everything else in `~/.config` stays on this machine only.
 
 ## Agent skills live in a second repo
 
-`~/.agents` is not part of this repo. It is [frailbongat/agents](https://github.com/frailbongat/agents),
-a public skill library that mostly vendors other people's MIT and Apache work, so it keeps its own
-LICENSE and NOTICE.md. `install.sh` clones it for you.
+`~/.agents` is not part of this repo, and it is not a checkout of anything. It is a destination that
+other installers write into. Every skill in it belongs to someone else:
 
-The line is: pi-specific config (`settings.json`, `models.json`, `themes/`, `extensions/`, `prompts/`)
-lives here. Tool-agnostic skills live in `~/.agents/skills/`. pi reads both.
+| Source | Count | Put there by |
+| --- | --- | --- |
+| Skills CLI: `mattpocock/skills`, `vercel-labs/skills`, `backnotprop/pstack` | 20 | `~/skills/bootstrap.sh`, off `reference-skill-lock.json` |
+| Paseo app | 6 | Paseo, when you run it. They carry `.paseo-managed-files.json`. |
+| Mine | 2 | `~/skills/install.sh`, as symlinks |
+
+[frailbongat/skills](https://github.com/frailbongat/skills) is the one to clone. It holds the two
+skills I wrote and the lock file that reinstalls the other twenty from their own repos.
+
+[frailbongat/agents](https://github.com/frailbongat/agents) is the retired version of this. It
+vendored copies of other people's skills, which went stale as soon as upstream moved. It is private
+now. Do not clone it.
+
+The line is: pi config lives in pi-config, skills live in `~/skills`, and this repo holds neither.
 
 `~/.config/mcp/mcp.json` stays here on purpose. It is precedence 1. `~/.agents/mcp.json` is only
 precedence 2, so moving it would demote it.
