@@ -98,7 +98,7 @@ pin=$(pinned_space "$(echo "$wins" | "$JQ" -r '.[0].app // empty')") ||
   pin=$(pinned_space "${app:-}") || pin=""
 if [ -n "$pin" ]; then
   wid=$(echo "$wins" | "$JQ" -r --argjson sp "$pin" '(map(select(.space == $sp)) + .) | .[0].id')
-  "$YABAI" -m space --focus "$pin" 2>/dev/null
+  "$HOME/.config/yabai/focus-space.sh" "$pin"
   "$YABAI" -m window --focus "$wid" 2>/dev/null
   log "pinned, went straight to space $pin for window $wid"
   exit 0
@@ -139,6 +139,6 @@ fi
 
 # Focus the space first. `window --focus` on its own does not carry you across
 # spaces for unmanaged (manage=off) windows, it just silently does nothing.
-"$YABAI" -m space --focus "$target" 2>/dev/null
+"$HOME/.config/yabai/focus-space.sh" "$target"
 "$YABAI" -m window --focus "$wid" 2>/dev/null
 log "travelled to window $wid on space $target"

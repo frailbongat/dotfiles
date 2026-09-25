@@ -86,7 +86,7 @@ if [ -z "$wid" ]; then
     sleep 0.1
   done
 
-  "$YABAI" -m space --focus "$target_space" 2>/dev/null
+  "$HOME/.config/yabai/focus-space.sh" "$target_space"
   "$YABAI" -m window --focus "$wid" 2>/dev/null
   log "opened $wid on space $("$YABAI" -m query --windows --window "$wid" 2>/dev/null | "$JQ" -r '.space')"
   exit 0
@@ -107,7 +107,7 @@ fi
 # its debounce, which is the stutter you feel when the app lives elsewhere.
 win_space=$(echo "$state" | "$JQ" -r '.space')
 if [ -n "$win_space" ] && [ "$win_space" != "$cur_space" ]; then
-  "$YABAI" -m space --focus "$win_space" 2>/dev/null
+  "$HOME/.config/yabai/focus-space.sh" "$win_space"
 fi
 
 "$YABAI" -m window --focus "$wid" 2>/dev/null || open -a "$open_name"

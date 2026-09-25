@@ -121,7 +121,7 @@ done
 # waking up) is parked on its space quietly. Only follow it there if you were
 # the one who summoned it.
 if [ -z "$pin" ] || [ "$asked_for_it" = "1" ]; then
-  "$YABAI" -m space --focus "$want_space" 2>/dev/null
+  "$HOME/.config/yabai/focus-space.sh" "$want_space"
   "$YABAI" -m window --focus "$wid" 2>/dev/null
 fi
 rm -f "$CLAIM"

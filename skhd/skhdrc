@@ -1,9 +1,9 @@
 # focus space
-alt - 1: yabai -m space --focus 1
-alt - 2: yabai -m space --focus 2
-alt - 3: yabai -m space --focus 3
-alt - 4: yabai -m space --focus 4
-alt - 5: yabai -m space --focus 5
+alt - 1: ~/.config/yabai/focus-space.sh 1
+alt - 2: ~/.config/yabai/focus-space.sh 2
+alt - 3: ~/.config/yabai/focus-space.sh 3
+alt - 4: ~/.config/yabai/focus-space.sh 4
+alt - 5: ~/.config/yabai/focus-space.sh 5
 
 # focus window
 alt - i: yabai -m window --focus north
