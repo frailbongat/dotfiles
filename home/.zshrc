@@ -121,6 +121,11 @@ source $ZSH/oh-my-zsh.sh
 export BUN_INSTALL="$HOME/.bun"
 export PATH="$BUN_INSTALL/bin:$PATH"
 
+# Keep big caches on the external drive, the internal disk is small
+export BUN_INSTALL_CACHE_DIR="/Volumes/Dock/.bun-cache"
+export PLAYWRIGHT_BROWSERS_PATH="/Volumes/Dock/pw-browsers"
+export HF_HOME="/Volumes/Dock/.cache/huggingface"
+
 # pnpm
 export PNPM_HOME="/Users/frailbongat/Library/pnpm"
 case ":$PATH:" in
