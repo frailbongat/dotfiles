@@ -18,3 +18,4 @@ end
 require("items.widgets.volume")
 require("items.widgets.cpu")
 require("items.widgets.cpu_remote")
+require("items.widgets.ram_remote_two")
