@@ -18,7 +18,7 @@ local ram_remote_two = sbar.add("graph", "widgets.ram_remote_two", 42, {
     drawing = true,
   },
   icon = {
-    string = icons.ram,
+    string = icons.cpu,
     color = colors.yellow
   },
   label = {
